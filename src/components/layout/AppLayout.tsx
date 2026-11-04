@@ -100,6 +100,12 @@ export function AppLayout() {
               Lower Body
             </NavLink>
             <NavLink
+              to={ROUTES.module('lower-body', 'weight-shifting-and-balance', 'full-body-avatar-tracking')}
+              className={({ isActive }) => `desktop-nav__link ${isActive ? 'desktop-nav__link--active' : ''}`}
+            >
+              2D Avatar
+            </NavLink>
+            <NavLink
               to={ROUTES.module('upper-body', 'hand-gross-motor', 'hand-opening-and-closing')}
               className={({ isActive }) => `desktop-nav__link ${isActive ? 'desktop-nav__link--active' : ''}`}
             >

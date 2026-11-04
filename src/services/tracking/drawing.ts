@@ -33,6 +33,7 @@ export function drawSkeleton(
   ctx.lineWidth = style.lineWidth;
   ctx.strokeStyle = style.line;
   ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
   for (const { start, end } of connections) {
     const a = landmarks[start];
     const b = landmarks[end];
@@ -43,12 +44,17 @@ export function drawSkeleton(
     ctx.stroke();
   }
 
-  ctx.fillStyle = style.point;
   landmarks.forEach((l, i) => {
     if (hidden.has(i) || !isVisible(l)) return;
+    const px = l.x * width;
+    const py = l.y * height;
     ctx.beginPath();
-    ctx.arc(l.x * width, l.y * height, style.pointRadius, 0, Math.PI * 2);
+    ctx.arc(px, py, style.pointRadius, 0, Math.PI * 2);
+    ctx.fillStyle = style.point;
     ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = style.line;
+    ctx.stroke();
   });
 }
 

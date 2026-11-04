@@ -6,6 +6,7 @@ import {
   ChevronRight,
   Hand,
   RotateCcw,
+  PersonStanding,
 } from 'lucide-react';
 import { ROUTES } from '@/core/config/app';
 import { getCatalogStats } from '@/modules/registry';
@@ -68,27 +69,21 @@ export function DashboardPage() {
           Choose a Body Region
         </h2>
 
-        <div className="region-cards-list">
-          {/* Upper Body Card */}
-          <Link to={ROUTES.section('upper-body')} className="region-item-card">
-            <div className="region-item-card__icon region-item-card__icon--teal">
-              <UpperBodyIllustration width={32} height={32} />
+        <div className="region-buttons-row">
+          {/* Upper Body Button */}
+          <Link to={ROUTES.section('upper-body')} className="region-button-pill">
+            <div className="region-button-pill__icon region-button-pill__icon--teal">
+              <UpperBodyIllustration width={22} height={22} />
             </div>
-            <div className="region-item-card__content">
-              <span className="region-item-card__title">Upper Body Rehabilitation</span>
-            </div>
-            <ChevronRight size={20} className="region-item-card__arrow" />
+            <span className="region-button-pill__title">Upper Body</span>
           </Link>
 
-          {/* Lower Body Card */}
-          <Link to={ROUTES.section('lower-body')} className="region-item-card">
-            <div className="region-item-card__icon region-item-card__icon--green">
-              <LowerBodyIllustration width={32} height={32} />
+          {/* Lower Body Button */}
+          <Link to={ROUTES.section('lower-body')} className="region-button-pill">
+            <div className="region-button-pill__icon region-button-pill__icon--green">
+              <LowerBodyIllustration width={22} height={22} />
             </div>
-            <div className="region-item-card__content">
-              <span className="region-item-card__title">Lower Body Rehabilitation</span>
-            </div>
-            <ChevronRight size={20} className="region-item-card__arrow" />
+            <span className="region-button-pill__title">Lower Body</span>
           </Link>
         </div>
       </section>
@@ -100,6 +95,21 @@ export function DashboardPage() {
         </h2>
 
         <div className="working-modules-list">
+          {/* Full Body Avatar Tracking Character */}
+          <Link
+            to={ROUTES.module('lower-body', 'weight-shifting-and-balance', 'full-body-avatar-tracking')}
+            className="module-item-card"
+          >
+            <div className="module-item-card__icon module-item-card__icon--cyan">
+              <PersonStanding size={22} />
+            </div>
+            <div className="module-item-card__content">
+              <span className="module-item-card__title">Full Body Avatar Tracking</span>
+              <span className="module-item-card__subtitle">(Interactive 2D Healthcare Character)</span>
+            </div>
+            <ChevronRight size={20} className="module-item-card__arrow" />
+          </Link>
+
           {/* Shoulder Mobility */}
           <Link
             to={ROUTES.module('upper-body', 'shoulder-mobility', 'general-template')}

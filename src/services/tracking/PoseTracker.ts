@@ -1,13 +1,12 @@
 import type { PoseLandmarker } from '@mediapipe/tasks-vision';
 import { MEDIAPIPE_CONFIG } from './config';
-import { POSE_FACE_LANDMARKS } from './landmarks';
 import { createWithDelegateFallback, loadVisionRuntime, resolveModelUrl } from './mediapipeLoader';
 import type { Connection, Tracker, TrackingFrame } from './types';
 
 /** Full-body pose tracking (33 landmarks). */
 export class PoseTracker implements Tracker {
   readonly kind = 'pose' as const;
-  readonly hiddenLandmarks = POSE_FACE_LANDMARKS;
+  readonly hiddenLandmarks: ReadonlySet<number> = new Set<number>();
   connections: Connection[] = [];
 
   private landmarker: PoseLandmarker | null = null;
@@ -25,9 +24,13 @@ export class PoseTracker implements Tracker {
       }),
     );
 
-    this.connections = vision.PoseLandmarker.POSE_CONNECTIONS.filter(
-      (c) => !POSE_FACE_LANDMARKS.has(c.start) && !POSE_FACE_LANDMARKS.has(c.end),
-    );
+    // Full 33-point MediaPipe POSE_CONNECTIONS + head-to-shoulder connections
+    const baseConnections = vision.PoseLandmarker.POSE_CONNECTIONS;
+    this.connections = [
+      ...baseConnections,
+      { start: 0, end: 11 },
+      { start: 0, end: 12 },
+    ];
   }
 
   detect(video: HTMLVideoElement, timestampMs: number): TrackingFrame {

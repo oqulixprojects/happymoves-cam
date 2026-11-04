@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { createTracker } from '@/services/tracking/createTracker';
-import { clearCanvas, drawSkeleton } from '@/services/tracking/drawing';
+import { clearCanvas, drawSkeleton, type OverlayStyle } from '@/services/tracking/drawing';
 import { TrackerError, type Tracker, type TrackerKind, type TrackingFrame } from '@/services/tracking/types';
 
 export type TrackerStatus = 'idle' | 'loading' | 'running' | 'error';
@@ -16,6 +16,8 @@ interface UseTrackerOptions {
    * logic here (rep counting, scoring); do not set React state per frame.
    */
   onFrame?: (frame: TrackingFrame) => void;
+  /** Custom overlay visual style for the skeleton lines and points */
+  overlayStyle?: OverlayStyle;
 }
 
 export interface UseTracker {
@@ -33,7 +35,7 @@ const UI_UPDATE_INTERVAL_MS = 125;
  * Runs a MediaPipe tracker against a <video>, draws the skeleton on a <canvas>
  * and reports frames. Owns the animation loop and cleans everything up.
  */
-export function useTracker({ kind, videoRef, canvasRef, enabled, onFrame }: UseTrackerOptions): UseTracker {
+export function useTracker({ kind, videoRef, canvasRef, enabled, onFrame, overlayStyle }: UseTrackerOptions): UseTracker {
   const [status, setStatus] = useState<TrackerStatus>('idle');
   const [error, setError] = useState<TrackerError | null>(null);
   const [fps, setFps] = useState(0);
@@ -44,6 +46,11 @@ export function useTracker({ kind, videoRef, canvasRef, enabled, onFrame }: UseT
   useEffect(() => {
     onFrameRef.current = onFrame;
   }, [onFrame]);
+
+  const overlayStyleRef = useRef(overlayStyle);
+  useEffect(() => {
+    overlayStyleRef.current = overlayStyle;
+  }, [overlayStyle]);
 
   useEffect(() => {
     if (!enabled) {
@@ -116,8 +123,9 @@ export function useTracker({ kind, videoRef, canvasRef, enabled, onFrame }: UseT
         clearCanvas(canvas);
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          if (result.pose) drawSkeleton(ctx, result.pose, active.connections, active.hiddenLandmarks);
-          result.hands?.forEach((h) => drawSkeleton(ctx, h.landmarks, active.connections, active.hiddenLandmarks));
+          const style = overlayStyleRef.current;
+          if (result.pose) drawSkeleton(ctx, result.pose, active.connections, active.hiddenLandmarks, style);
+          result.hands?.forEach((h) => drawSkeleton(ctx, h.landmarks, active.connections, active.hiddenLandmarks, style));
         }
 
         onFrameRef.current?.(result);

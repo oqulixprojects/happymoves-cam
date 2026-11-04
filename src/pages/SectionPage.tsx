@@ -10,7 +10,6 @@ import {
 } from 'lucide-react';
 import { ROUTES } from '@/core/config/app';
 import { getCategoriesForSection, getSection } from '@/catalog';
-import { getEntriesForCategory } from '@/modules/registry';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import './pages.css';
 
@@ -73,9 +72,6 @@ export function SectionPage() {
             priority: category.priority === 'P0' ? 'High' : category.priority === 'P1' ? 'Medium' : 'Low',
           };
           const IconComp = getCategoryIcon(category.id);
-          const { activities, extras } = getEntriesForCategory(category.id);
-          const liveCount = [...activities, ...extras].filter((e) => e.state === 'available').length;
-          const priority = style.priority;
 
           return (
             <Link
@@ -88,29 +84,16 @@ export function SectionPage() {
                 className="category-card-item__icon"
                 style={{ backgroundColor: style.iconBg, color: style.iconColor }}
               >
-                <IconComp size={24} />
+                <IconComp size={20} />
               </div>
 
               {/* Card Main Info */}
               <div className="category-card-item__content">
-                <div className="category-card-item__top">
-                  <span className="category-card-item__title">{category.title}</span>
-                  <span className={`badge badge--${priority.toLowerCase()}`}>
-                    {priority}
-                  </span>
-                </div>
-
-                <p className="category-card-item__desc">{category.description}</p>
-
-                <div className="category-card-item__meta">
-                  <span>
-                    {category.activities.length} activities · {liveCount} {liveCount === 1 ? 'module' : 'modules'}
-                  </span>
-                </div>
+                <span className="category-card-item__title">{category.title}</span>
               </div>
 
               {/* Chevron Arrow */}
-              <ChevronRight size={18} className="category-card-item__arrow" />
+              <ChevronRight size={16} className="category-card-item__arrow" />
             </Link>
           );
         })}

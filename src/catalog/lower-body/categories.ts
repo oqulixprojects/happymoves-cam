@@ -70,6 +70,7 @@ export const lowerBodyCategories: CategoryDefinition[] = [
     icon: 'scale',
     priority: 'P2',
     activities: [
+      'Full Body Avatar Tracking',
       'Seated Lateral Weight Shifting',
       'Seated Forward Reaching',
       'Supported Standing Weight Shifting',
@@ -79,7 +80,7 @@ export const lowerBodyCategories: CategoryDefinition[] = [
       'Multidirectional Target Reaching',
       'Staggered-Stance Weight Transfer',
     ],
-    initialFocus: ['Supported Standing Weight Shifting', 'Multidirectional Reaching'],
+    initialFocus: ['Full Body Avatar Tracking', 'Supported Standing Weight Shifting', 'Multidirectional Reaching'],
   },
   {
     id: 'stepping-and-functional-mobility',
