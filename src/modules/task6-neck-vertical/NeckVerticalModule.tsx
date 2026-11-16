@@ -310,7 +310,6 @@ export default function NeckVerticalModule() {
     let caughtCollectible = false;
 
     if (now - lastCatchRef.current >= 700) {
-      // Stars can only be caught in the upper lane while moving up.
       if (
         direction === 'up' &&
         Math.abs(position - starY) < 8
@@ -325,10 +324,7 @@ export default function NeckVerticalModule() {
         setStarY(Math.floor(Math.random() * 16) + 15);
 
         setTrackingMessage('⭐ Star caught! +50 points');
-      }
-
-      // Crystals can only be collected in the lower lane while moving down.
-      else if (
+      } else if (
         direction === 'down' &&
         Math.abs(position - crystalY) < 8
       ) {
@@ -336,7 +332,7 @@ export default function NeckVerticalModule() {
 
         setCrystalY(Math.floor(Math.random() * 16) + 70);
 
-        setTrackingMessage('💎 Crystal collected!');
+        setTrackingMessage('Crystal collected!');
       }
 
       if (caughtCollectible) {
@@ -476,23 +472,31 @@ export default function NeckVerticalModule() {
             </div>
 
             <div
-              className="neck-crystal"
+              className="neck-crystal-group"
               style={{
                 position: 'absolute',
                 top: `${crystalY}%`,
                 left: '50%',
                 transform: 'translate(-50%, -50%)',
-                fontSize: 30,
               }}
             >
-              💎
+              <span className="neck-crystal-glitter glitter-one">✦</span>
+              <span className="neck-crystal-glitter glitter-two">✧</span>
+              <span className="neck-crystal-glitter glitter-three">✦</span>
+              <span className="neck-crystal-glitter glitter-four">✧</span>
+              <span className="neck-crystal-glitter glitter-five">✦</span>
+              <span className="neck-crystal-glitter glitter-six">✧</span>
+              <span className="neck-crystal-glitter glitter-seven">✦</span>
+              <span className="neck-crystal-glitter glitter-eight">✧</span>
+
+              <div className="neck-crystal">💎</div>
             </div>
           </div>
 
           <p>{trackingMessage}</p>
           <h3>Score: {gameStats.score}</h3>
           <p>⭐ Star: +50 points</p>
-          <p>💎 Collect crystals in the lower lane</p>
+          <p>Collect the crystal in the lower lane</p>
         </section>
 
         <section className="neck-telemetry-panel">

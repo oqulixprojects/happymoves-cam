@@ -1,28 +1,46 @@
 
+/* Main page */
+
 .neck-vertical-module {
   min-height: 100vh;
-  padding: 24px;
-  background: #eaf3ff;
+  padding: 28px;
+  background: linear-gradient(135deg, #eaf3ff, #dbeafe);
   color: #172554;
   font-family: Arial, sans-serif;
   box-sizing: border-box;
 }
 
+.neck-vertical-module * {
+  box-sizing: border-box;
+}
+
 .neck-vertical-header {
+  text-align: center;
   margin-bottom: 24px;
 }
 
 .neck-vertical-header h2 {
   margin: 0 0 8px;
-  font-size: 26px;
-  font-weight: 700;
+  font-size: 28px;
+  font-weight: 800;
+  color: #172554;
 }
+
+.neck-vertical-header p {
+  margin: 0;
+  color: #475569;
+  line-height: 1.5;
+}
+
+/* Three-column dashboard */
 
 .neck-vertical-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1fr);
-  gap: 20px;
-  align-items: stretch;
+  grid-template-columns: minmax(220px, 0.85fr) minmax(320px, 1.5fr) minmax(220px, 0.85fr);
+  gap: 22px;
+  max-width: 1500px;
+  margin: 0 auto;
+  align-items: start;
 }
 
 .neck-camera-panel,
@@ -30,18 +48,26 @@
 .neck-telemetry-panel {
   min-width: 0;
   padding: 20px;
-  border-radius: 16px;
-  background: white;
-  box-shadow: 0 4px 16px rgba(23, 37, 84, 0.08);
-  box-sizing: border-box;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 8px 25px rgba(23, 37, 84, 0.1);
 }
+
+.neck-camera-panel h3,
+.neck-game-panel h3,
+.neck-telemetry-panel h3 {
+  margin: 0 0 18px;
+  font-size: 19px;
+}
+
+/* Camera */
 
 .neck-camera-panel video,
 .neck-camera-panel canvas {
   display: block;
   width: 100%;
   max-width: 100%;
-  border-radius: 12px;
+  border-radius: 14px;
 }
 
 .neck-camera-panel video {
@@ -50,73 +76,33 @@
   background: #0f172a;
 }
 
-.neck-game-panel {
-  min-height: 480px;
-  position: relative;
-  overflow: hidden;
-  background: #101b3d;
-  color: white;
-}
-
-.neck-game-lane {
-  position: relative;
-  height: 400px;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 12px;
-  background: linear-gradient(180deg, #172554, #0f172a);
-}
-
-.neck-character {
-  position: absolute;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 42px;
-  transition: top 0.1s linear;
-  z-index: 2;
-}
-
-.neck-telemetry-panel h3 {
-  margin-top: 0;
-  margin-bottom: 16px;
-}
-
-.neck-stat {
-  margin: 16px 0;
-  padding: 14px;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  background: #f1f5f9;
-  transition: background 0.2s ease;
-}
-
-.neck-stat:hover {
-  background: #e8effa;
+.neck-camera-panel canvas {
+  height: auto;
 }
 
 .camera-controls {
   display: flex;
-  gap: 10px;
   flex-wrap: wrap;
+  gap: 10px;
   margin-bottom: 16px;
 }
 
 .camera-controls button {
   flex: 1;
   min-width: 100px;
-  padding: 11px 18px;
+  padding: 11px 14px;
   border: none;
-  border-radius: 8px;
+  border-radius: 9px;
   background: #2563eb;
-  color: white;
-  font-weight: 600;
+  color: #ffffff;
+  font-weight: 700;
   cursor: pointer;
   transition: background 0.2s ease, transform 0.2s ease;
 }
 
 .camera-controls button:hover:not(:disabled) {
   background: #1d4ed8;
-  transform: translateY(-1px);
+  transform: translateY(-2px);
 }
 
 .camera-controls button:last-child {
@@ -132,15 +118,266 @@
   cursor: not-allowed;
 }
 
+/* Main game card */
+
+.neck-game-panel {
+  position: relative;
+  min-height: 550px;
+  padding: 22px;
+  overflow: hidden;
+  border-radius: 22px;
+  background: linear-gradient(160deg, #101b43, #172554 55%, #0c315b);
+  color: #ffffff;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.2);
+}
+
+.neck-game-panel h3 {
+  color: #ffffff;
+  text-align: center;
+  font-size: 21px;
+}
+
+.neck-game-lane {
+  position: relative;
+  height: 440px;
+  overflow: hidden;
+  border: 2px solid rgba(147, 197, 253, 0.35);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 50% 15%, rgba(250, 204, 21, 0.12), transparent 22%),
+    radial-gradient(circle at 50% 90%, rgba(56, 189, 248, 0.22), transparent 30%),
+    linear-gradient(180deg, #172554, #10234d 55%, #0c315b);
+}
+
+/* Direction labels */
+
+.neck-game-lane::before {
+  content: "UP";
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  color: #fde68a;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 3px;
+}
+
+.neck-game-lane::after {
+  content: "DOWN";
+  position: absolute;
+  bottom: 12px;
+  left: 14px;
+  color: #bae6fd;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 3px;
+}
+
+/* Character */
+
+.neck-character {
+  position: absolute;
+  left: 50%;
+  z-index: 5;
+  font-size: 44px;
+  line-height: 1;
+  transform: translate(-50%, -50%);
+  transition: top 0.12s linear;
+  filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.7));
+}
+
+/* Upper gold star */
+
+.neck-star {
+  z-index: 4;
+  line-height: 1;
+  filter: drop-shadow(0 0 12px #facc15);
+  animation: neck-star-glow 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes neck-star-glow {
+  from {
+    filter: drop-shadow(0 0 4px #facc15);
+    transform: scale(0.9);
+  }
+  to {
+    filter: drop-shadow(0 0 16px #fef08a);
+    transform: scale(1.15);
+  }
+}
+
+/* Large crystal group */
+
+.neck-crystal-group {
+  position: absolute;
+  width: 145px;
+  height: 130px;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.neck-crystal {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  z-index: 2;
+  font-size: 82px;
+  line-height: 1;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.95));
+  animation: neck-crystal-glow 1.8s ease-in-out infinite alternate;
+}
+
+@keyframes neck-crystal-glow {
+  from {
+    filter: drop-shadow(0 0 5px rgba(56, 189, 248, 0.6));
+  }
+  to {
+    filter:
+      drop-shadow(0 0 14px rgba(125, 211, 252, 1))
+      drop-shadow(0 0 25px rgba(56, 189, 248, 0.8));
+  }
+}
+
+/* Golden glitter around crystal */
+
+.neck-crystal-glitter {
+  position: absolute;
+  z-index: 3;
+  color: #facc15;
+  line-height: 1;
+  text-shadow:
+    0 0 5px #fef08a,
+    0 0 10px #facc15,
+    0 0 18px rgba(250, 204, 21, 0.9);
+  animation: neck-glitter 1.4s ease-in-out infinite alternate;
+}
+
+.glitter-one {
+  top: 5px;
+  left: 12px;
+  font-size: 19px;
+}
+
+.glitter-two {
+  top: 18px;
+  left: 62px;
+  font-size: 14px;
+  animation-delay: 0.3s;
+}
+
+.glitter-three {
+  top: 7px;
+  right: 12px;
+  font-size: 18px;
+  animation-delay: 0.6s;
+}
+
+.glitter-four {
+  top: 48px;
+  left: 0;
+  font-size: 15px;
+  animation-delay: 0.2s;
+}
+
+.glitter-five {
+  top: 42px;
+  right: 0;
+  font-size: 20px;
+  animation-delay: 0.5s;
+}
+
+.glitter-six {
+  top: 75px;
+  left: 22px;
+  font-size: 13px;
+  animation-delay: 0.8s;
+}
+
+.glitter-seven {
+  top: 65px;
+  right: 22px;
+  font-size: 14px;
+  animation-delay: 0.4s;
+}
+
+.glitter-eight {
+  top: 0;
+  left: 100px;
+  font-size: 12px;
+  animation-delay: 0.7s;
+}
+
+@keyframes neck-glitter {
+  from {
+    opacity: 0.5;
+    transform: scale(0.8) rotate(0deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.3) rotate(25deg);
+  }
+}
+
+/* Game information */
+
+.neck-game-panel > p {
+  color: #dbeafe;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.neck-game-panel > h3:last-of-type {
+  margin-top: 14px;
+  color: #facc15;
+  font-size: 25px;
+  text-align: center;
+}
+
+/* Telemetry cards */
+
+.neck-telemetry-panel h3 {
+  margin-bottom: 18px;
+}
+
+.neck-stat {
+  margin: 14px 0;
+  padding: 15px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f1f5f9;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.neck-stat:hover {
+  background: #e8effa;
+  transform: translateY(-2px);
+}
+
+.neck-stat strong {
+  display: block;
+  color: #334155;
+  font-size: 13px;
+}
+
+.neck-stat p {
+  margin: 8px 0 0;
+  color: #1d4ed8;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+/* Reset button */
+
 .reset-statistics-button {
   width: 100%;
   padding: 12px;
   margin-top: 12px;
   border: none;
-  border-radius: 8px;
+  border-radius: 9px;
   background: #dc2626;
-  color: white;
-  font-weight: 600;
+  color: #ffffff;
+  font-weight: 700;
   cursor: pointer;
   transition: background 0.2s ease;
 }
@@ -148,6 +385,8 @@
 .reset-statistics-button:hover {
   background: #b91c1c;
 }
+
+/* Tablet */
 
 @media (max-width: 1100px) {
   .neck-vertical-layout {
@@ -160,41 +399,41 @@
   }
 }
 
+/* Mobile */
+
 @media (max-width: 700px) {
   .neck-vertical-module {
-    padding: 12px;
+    padding: 14px;
   }
 
   .neck-vertical-header h2 {
-    font-size: 21px;
+    font-size: 22px;
   }
 
   .neck-vertical-layout {
     grid-template-columns: 1fr;
-    gap: 14px;
+    gap: 15px;
   }
 
   .neck-camera-panel,
   .neck-game-panel,
   .neck-telemetry-panel {
     width: 100%;
-    padding: 14px;
+    padding: 15px;
     grid-column: auto;
     grid-row: auto;
   }
 
   .neck-game-panel {
-    min-height: 420px;
+    min-height: 450px;
   }
 
   .neck-game-lane {
-    height: 350px;
-  }
-
-  .camera-controls button {
-    flex: 1;
+    height: 360px;
   }
 }
+
+/* Small mobile */
 
 @media (max-width: 400px) {
   .neck-vertical-header h2 {
@@ -202,10 +441,15 @@
   }
 
   .neck-game-lane {
-    height: 300px;
+    height: 320px;
   }
 
   .neck-character {
-    font-size: 34px;
+    font-size: 36px;
+  }
+
+  .neck-crystal {
+    font-size: 68px;
   }
 }
+
