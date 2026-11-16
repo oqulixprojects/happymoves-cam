@@ -1,696 +1,429 @@
-import { useRef, useState, useEffect, useCallback } from 'react';
-import {
-  RotateCcw,
-  Volume2,
-  VolumeX,
-  CheckCircle2,
-  Trophy,
-  Gauge,
-  Layers,
-  Save,
-  Sparkles,
-  Package,
-} from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { useCamera } from '@/hooks/useCamera';
 import { useTracker } from '@/hooks/useTracker';
 import {
-  CameraBusy,
-  CameraErrorOverlay,
-  CameraPermissionPrompt,
-} from '@/components/camera/CameraOverlays';
-import { describeCameraError } from '@/services/camera/errorMessages';
-import { describeTrackerError } from '@/services/tracking/errorMessages';
-import {
-  ShelfReachTracker,
-  createShelfBurst,
-  createFloatingText,
-  loadResultsFromStorage,
-  saveResultsToStorage,
+  H,
+  ITEM_H,
+  ITEM_W,
+  SHELF_Y,
+  W,
+  buildResult,
+  buildTelemetry,
+  createGame,
+  extractPose,
+  getTarget,
+  processPose,
+  saveResult,
+  stepStars,
 } from './analytics';
-import type {
-  TrackedArm,
-  ShelfParticle,
-  FloatingText,
-  ShelfReachTelemetry,
-  StoredShelfReachData,
-  PantryItem,
-  ShelfSlot,
-} from './types';
+import type { GamePhase, GameState, ItemKind, SessionResult, Telemetry } from './types';
 import './shelfReach.css';
 
+// ------------------------------------------------------------------ audio
+let audioCtx: AudioContext | null = null;
+
+type ActivationNavigator = Navigator & { userActivation?: { hasBeenActive: boolean } };
+
+/** Creates/resumes audio only after the browser confirms a real user gesture happened. */
+function unlockAudio(): void {
+  const activation = (navigator as ActivationNavigator).userActivation;
+  if (activation && !activation.hasBeenActive) return; // e.g. Ctrl/Shift key presses don't count
+  try {
+    if (!audioCtx) audioCtx = new AudioContext();
+    if (audioCtx.state === 'suspended') void audioCtx.resume();
+  } catch {
+    /* audio not supported - ignore */
+  }
+}
+
+function playClick(): void {
+  // stay silent until the user has clicked once (audio unlocked)
+  if (!audioCtx || audioCtx.state !== 'running') return;
+  const ctx = audioCtx;
+  const t = ctx.currentTime;
+  [880, 1320].forEach((freq, i) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const start = t + i * 0.07;
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(0.25, start + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.18);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(start);
+    osc.stop(start + 0.2);
+  });
+}
+
+// ---------------------------------------------------------------- drawing
+function rect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function drawStar(ctx: CanvasRenderingContext2D, x: number, y: number, r: number): void {
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const rad = i % 2 === 0 ? r : r * 0.45;
+    const a = (Math.PI / 5) * i - Math.PI / 2;
+    const px = x + Math.cos(a) * rad;
+    const py = y + Math.sin(a) * rad;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawItem(ctx: CanvasRenderingContext2D, kind: ItemKind, cx: number, cy: number, lifted: boolean): void {
+  ctx.save();
+  ctx.translate(cx, cy);
+  if (lifted) {
+    ctx.shadowColor = 'rgba(0,0,0,0.45)';
+    ctx.shadowBlur = 14;
+    ctx.shadowOffsetY = 6;
+  }
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(20,20,20,0.55)';
+
+  if (kind === 'cereal') {
+    ctx.fillStyle = '#f08a24';
+    rect(ctx, -25, -36, 50, 72, 4);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#c96a0f';
+    ctx.fillRect(-25, -36, 50, 8);
+    ctx.fillStyle = '#fff3d6';
+    ctx.beginPath();
+    ctx.arc(0, 2, 14, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#f08a24';
+    ctx.beginPath();
+    ctx.arc(0, 4, 8, 0, Math.PI);
+    ctx.fill();
+  } else if (kind === 'juice') {
+    ctx.fillStyle = '#3b82c4';
+    ctx.beginPath();
+    ctx.moveTo(-22, 36);
+    ctx.lineTo(-22, -24);
+    ctx.lineTo(-13, -36);
+    ctx.lineTo(13, -36);
+    ctx.lineTo(22, -24);
+    ctx.lineTo(22, 36);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#ffb347';
+    ctx.beginPath();
+    ctx.arc(0, 8, 12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(-4, -34, 8, 6);
+  } else if (kind === 'soup') {
+    ctx.fillStyle = '#d83a3a';
+    rect(ctx, -23, -30, 46, 66, 5);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(-23, -8, 46, 24);
+    ctx.fillStyle = '#d83a3a';
+    ctx.beginPath();
+    ctx.arc(0, 4, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#c9ced3';
+    ctx.beginPath();
+    ctx.ellipse(0, -30, 23, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  } else {
+    ctx.fillStyle = '#f0b429';
+    rect(ctx, -24, -20, 48, 56, 12);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#8b5a2b';
+    rect(ctx, -20, -34, 40, 15, 4);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#fff3d6';
+    rect(ctx, -15, -2, 30, 22, 3);
+    ctx.fill();
+    ctx.fillStyle = '#f0b429';
+    ctx.beginPath();
+    ctx.arc(0, 9, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawShelf(ctx: CanvasRenderingContext2D, y: number, label: string, thick: number): void {
+  ctx.fillStyle = '#b88a4a';
+  ctx.fillRect(28, y, W - 56, thick);
+  ctx.fillStyle = '#8f6a33';
+  ctx.fillRect(28, y + thick - 4, W - 56, 4);
+  // brackets
+  ctx.fillStyle = '#8f6a33';
+  [60, W - 60].forEach((bx) => {
+    ctx.beginPath();
+    ctx.moveTo(bx - 10, y + thick);
+    ctx.lineTo(bx + 10, y + thick);
+    ctx.lineTo(bx, y + thick + 18);
+    ctx.closePath();
+    ctx.fill();
+  });
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.font = '600 13px system-ui, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(label, 34, y + thick + 16);
+}
+
+function drawScene(ctx: CanvasRenderingContext2D, g: GameState): void {
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = 'rgba(8, 28, 26, 0.38)';
+  ctx.fillRect(0, 0, W, H);
+
+  drawShelf(ctx, SHELF_Y.top, 'High shelf', 12);
+  drawShelf(ctx, SHELF_Y.middle, 'Middle shelf', 12);
+  drawShelf(ctx, SHELF_Y.counter, 'Counter', 20);
+
+  // dashed target slot (only while carrying an item)
+  if (g.heldId !== null) {
+    const t = getTarget(g.placed);
+    ctx.save();
+    ctx.setLineDash([8, 6]);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#3ddc84';
+    ctx.fillStyle = 'rgba(61, 220, 132, 0.16)';
+    rect(ctx, t.x - (ITEM_W + 12) / 2, t.y - (ITEM_H + 12) / 2, ITEM_W + 12, ITEM_H + 12, 8);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // items (held item last so it is on top)
+  for (const it of g.items) {
+    if (it.state !== 'held') drawItem(ctx, it.kind, it.x, it.y, false);
+  }
+  for (const it of g.items) {
+    if (it.state === 'held') drawItem(ctx, it.kind, it.x, it.y, true);
+  }
+
+  // wrist cursors
+  const cursors: Array<['left' | 'right', string]> = [
+    ['left', '#5ad1ff'],
+    ['right', '#ffd166'],
+  ];
+  for (const [side, color] of cursors) {
+    const w = g.wrists[side];
+    if (!w) continue;
+    ctx.beginPath();
+    ctx.arc(w.x, w.y, 13, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.85;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#ffffff';
+    ctx.stroke();
+  }
+
+  // stars
+  ctx.fillStyle = '#ffd34d';
+  for (const s of g.stars) {
+    ctx.globalAlpha = Math.max(Math.min(s.life * 1.5, 1), 0);
+    drawStar(ctx, s.x, s.y, s.size);
+  }
+  ctx.globalAlpha = 1;
+
+  if (g.phase === 'waiting') {
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    rect(ctx, W / 2 - 230, H / 2 - 34, 460, 68, 12);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '600 17px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Step back until your head, shoulders and hips are in view', W / 2, H / 2 + 6);
+  }
+}
+
+// -------------------------------------------------------------- component
 export default function ShelfReachModule() {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null); // tracker skeleton overlay
+  const gameCanvasRef = useRef<HTMLCanvasElement>(null); // shelves, items, cursors
+  const gameRef = useRef<GameState>(createGame());
+  const savedRef = useRef(false);
 
-  const trackerInstanceRef = useRef<ShelfReachTracker>(new ShelfReachTracker());
-  const particlesRef = useRef<ShelfParticle[]>([]);
-  const floatingTextsRef = useRef<FloatingText[]>([]);
-  const lastUiUpdateRef = useRef<number>(0);
-
-  const [selectedArm, setSelectedArm] = useState<TrackedArm>('auto');
-  const selectedArmRef = useRef<TrackedArm>('auto');
-  useEffect(() => {
-    selectedArmRef.current = selectedArm;
-  }, [selectedArm]);
-
-  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
-  useEffect(() => {
-    trackerInstanceRef.current.soundEnabled = soundEnabled;
-  }, [soundEnabled]);
-
-  const [savedSession, setSavedSession] = useState<StoredShelfReachData | null>(() =>
-    loadResultsFromStorage()
-  );
-  const [showSavedToast, setShowSavedToast] = useState<boolean>(false);
-
-  const [telemetry, setTelemetry] = useState<ShelfReachTelemetry>({
-    activeArm: 'right',
-    currentReachPercent: 0,
-    maxReachHeightPercent: 0,
-    leftPeakReachPercent: 0,
-    rightPeakReachPercent: 0,
-    bilateralSymmetryPercent: 100,
-    itemsArranged: 0,
-    totalAttempts: 0,
-    reachSpeed: 0,
-    totalScore: 0,
-    streak: 0,
-    feedbackMessage: 'Stand or sit so your hips, shoulders, and arms are visible.',
-    isHoldingItem: false,
-    heldItemName: 'None',
-    reps: [],
-    isTrackingValid: false,
-  });
+  const [telemetry, setTelemetry] = useState<Telemetry>(() => buildTelemetry(gameRef.current));
+  const [phase, setPhase] = useState<GamePhase>('waiting');
+  const [result, setResult] = useState<SessionResult | null>(null);
 
   const camera = useCamera(videoRef);
-
-  // Auto-start camera
-  useEffect(() => {
-    if (camera.status === 'idle') {
-      void camera.start();
-    }
-  }, [camera]);
-
-  const handleResetSession = useCallback(() => {
-    trackerInstanceRef.current.reset();
-    particlesRef.current = [];
-    floatingTextsRef.current = [];
-    setTelemetry({
-      activeArm: 'right',
-      currentReachPercent: 0,
-      maxReachHeightPercent: 0,
-      leftPeakReachPercent: 0,
-      rightPeakReachPercent: 0,
-      bilateralSymmetryPercent: 100,
-      itemsArranged: 0,
-      totalAttempts: 0,
-      reachSpeed: 0,
-      totalScore: 0,
-      streak: 0,
-      feedbackMessage: 'Session reset. Touch item on counter to pick it up!',
-      reps: [],
-      isHoldingItem: false,
-      heldItemName: 'None',
-      isTrackingValid: false,
-    });
-  }, []);
-
-  const handleManualSave = useCallback(() => {
-    const data: StoredShelfReachData = {
-      lastSessionDate: new Date().toISOString(),
-      itemsArranged: telemetry.itemsArranged,
-      maxReachHeightPercent: telemetry.maxReachHeightPercent,
-      bilateralSymmetry: telemetry.bilateralSymmetryPercent,
-      avgReachSpeed: telemetry.reachSpeed,
-      totalScore: telemetry.totalScore,
-      repsCount: telemetry.reps.length,
-    };
-    saveResultsToStorage(data);
-    setSavedSession(data);
-    setShowSavedToast(true);
-    setTimeout(() => setShowSavedToast(false), 3000);
-  }, [telemetry]);
-
-  // MediaPipe Pose Tracker
-  const tracker = useTracker({
+  useTracker({
     kind: 'pose',
     videoRef,
     canvasRef,
     enabled: camera.status === 'active',
     onFrame: (frame) => {
-      const now = performance.now();
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      const landmarks = frame.pose;
-
-      // Update state machine
-      const updated = trackerInstanceRef.current.update(
-        landmarks,
-        selectedArmRef.current,
-        now,
-        (snapX, snapY) => {
-          particlesRef.current.push(...createShelfBurst(snapX, snapY, '#34d399'));
-          floatingTextsRef.current.push(createFloatingText(snapX, snapY, 'PLACED! +100', '#34d399'));
-        }
-      );
-
-      // Throttle React state updates to ~10 Hz
-      if (
-        now - lastUiUpdateRef.current >= 95 ||
-        updated.itemsArranged !== telemetry.itemsArranged ||
-        updated.isHoldingItem !== telemetry.isHoldingItem
-      ) {
-        lastUiUpdateRef.current = now;
-        setTelemetry(updated);
-      }
-
-      // Draw custom 2D vector shelf layers
-      const width = canvas.width;
-      const height = canvas.height;
-      const currentItem = trackerInstanceRef.current.currentItem;
-      const targetSlot = trackerInstanceRef.current.targetSlot;
-
-      drawShelfLayers(
-        ctx,
-        width,
-        height,
-        currentItem,
-        targetSlot,
-        updated,
-        particlesRef.current,
-        floatingTextsRef.current,
-        landmarks
-      );
-
-      // Clean up dead particles
-      particlesRef.current = particlesRef.current.filter((p) => p.life < p.maxLife);
-      floatingTextsRef.current = floatingTextsRef.current.filter((ft) => ft.life < ft.maxLife);
+      const lm = extractPose((frame as unknown as { pose?: unknown }).pose);
+      const snapped = processPose(gameRef.current, lm, performance.now());
+      if (snapped) playClick();
     },
   });
 
-  const gaugePercent = Math.min(100, Math.max(0, (telemetry.currentReachPercent / 120) * 100));
+  useEffect(() => {
+    if (camera.status === 'idle') camera.start();
+  }, [camera]);
+
+  // unlock audio on the first user gesture (browser autoplay policy)
+  useEffect(() => {
+    const events = ['pointerdown', 'click', 'touchend'] as const;
+    events.forEach((e) => window.addEventListener(e, unlockAudio));
+    return () => events.forEach((e) => window.removeEventListener(e, unlockAudio));
+  }, []);
+
+  // render loop
+  useEffect(() => {
+    let raf = 0;
+    let last = performance.now();
+    const loop = (now: number) => {
+      const canvas = gameCanvasRef.current;
+      const ctx = canvas?.getContext('2d');
+      if (ctx) {
+        stepStars(gameRef.current, Math.min((now - last) / 1000, 0.1));
+        drawScene(ctx, gameRef.current);
+      }
+      last = now;
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  // telemetry + completion check (10 Hz keeps React cheap)
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const g = gameRef.current;
+      setTelemetry(buildTelemetry(g));
+      setPhase(g.phase);
+      if (g.phase === 'complete' && !savedRef.current) {
+        savedRef.current = true;
+        const r = buildResult(g);
+        saveResult(r);
+        setResult(r);
+      }
+    }, 100);
+    return () => window.clearInterval(id);
+  }, []);
+
+  // save partial progress if the user leaves mid-session
+  useEffect(() => {
+    return () => {
+      const g = gameRef.current;
+      if (!savedRef.current && g.placed > 0) saveResult(buildResult(g));
+    };
+  }, []);
+
+  const restart = () => {
+    gameRef.current = createGame();
+    savedRef.current = false;
+    setResult(null);
+    setPhase('waiting');
+    setTelemetry(buildTelemetry(gameRef.current));
+  };
+
+  const progress = Math.round((telemetry.itemsPlaced / telemetry.itemsTotal) * 100);
 
   return (
-    <div className="shelf-reach-container">
-      {/* Header bar */}
-      <div className="shelf-reach-header">
-        <div className="shelf-reach-title-group">
-          <h2>
-            <Package className="w-5 h-5 text-sky-600" />
-            2D Shelf Item Organizer (Shoulder Reaching)
-          </h2>
-          <p>
-            Multi-tier active arm elevation, functional shoulder flexion/abduction, and vertical reaching
-          </p>
-        </div>
+    <div className="sr-layout">
+      <section className="sr-stage">
+        <div className="sr-frame">
+          <video ref={videoRef} className="sr-video" playsInline muted autoPlay />
+          <canvas ref={canvasRef} className="sr-tracker" />
+          <canvas ref={gameCanvasRef} className="sr-game" width={W} height={H} />
 
-        <div className="shelf-reach-controls">
-          {/* Arm selector */}
-          <div className="shelf-reach-arm-selector">
-            <button
-              type="button"
-              className={`shelf-reach-arm-btn ${selectedArm === 'auto' ? 'active' : ''}`}
-              onClick={() => setSelectedArm('auto')}
-            >
-              Auto Arm
-            </button>
-            <button
-              type="button"
-              className={`shelf-reach-arm-btn ${selectedArm === 'left' ? 'active' : ''}`}
-              onClick={() => setSelectedArm('left')}
-            >
-              Left Arm
-            </button>
-            <button
-              type="button"
-              className={`shelf-reach-arm-btn ${selectedArm === 'right' ? 'active' : ''}`}
-              onClick={() => setSelectedArm('right')}
-            >
-              Right Arm
-            </button>
-          </div>
+     {camera.status !== 'active' && (
+  <div className="sr-overlay">
+    {camera.status === 'error' ? (
+      <>
+        {/* <p>
+          Camera problem: {camera.error?.code ?? 'unknown'}
+        </p> */}
+        <p style={{ fontSize: 14, maxWidth: 360 }}>
+          {camera.error?.code === 'insecure-context'
+            ? 'Open this page at http://localhost:5173 (not the 192.168... address).'
+            : 'Close other apps or tabs using the webcam, allow camera access in the address bar, then try again.'}
+        </p>
+        <button type="button" className="sr-button" onClick={() => camera.start()}>
+         Start again
+        </button>
+      </>
+    ) : (
+      <>
+        <p>Starting camera. Allow access if your browser asks.</p>
+        {/* <p style={{ fontSize: 13 }}>status: {String(camera.status)}</p> */}
+      </>
+    )}
+  </div>
+)}
 
-          {/* Sound toggle */}
-          <button
-            type="button"
-            className="shelf-reach-action-btn"
-            onClick={() => setSoundEnabled((prev) => !prev)}
-            title={soundEnabled ? 'Mute Audio' : 'Enable Audio'}
-          >
-            {soundEnabled ? (
-              <Volume2 className="w-3.5 h-3.5 text-emerald-600" />
-            ) : (
-              <VolumeX className="w-3.5 h-3.5 text-slate-400" />
-            )}
-            <span>{soundEnabled ? 'Audio ON' : 'Audio OFF'}</span>
-          </button>
-
-          {/* Reset button */}
-          <button
-            type="button"
-            className="shelf-reach-action-btn"
-            onClick={handleResetSession}
-            title="Reset current session"
-          >
-            <RotateCcw className="w-3.5 h-3.5 text-slate-600" />
-            <span>Reset</span>
-          </button>
-
-          {/* Manual Save button */}
-          <button
-            type="button"
-            className="shelf-reach-action-btn primary"
-            onClick={handleManualSave}
-            title="Persist results to storage"
-          >
-            <Save className="w-3.5 h-3.5" />
-            <span>Save Set</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Main Layout Grid */}
-      <div className="shelf-reach-layout">
-        {/* Left: Viewport & Canvas Overlay */}
-        <div className="shelf-reach-viewport">
-          <video
-            ref={videoRef}
-            className="shelf-reach-video"
-            playsInline
-            muted
-            autoPlay
-          />
-          <canvas ref={canvasRef} className="shelf-reach-canvas" />
-
-          {/* Camera Status Overlays */}
-          {camera.status === 'idle' && (
-            <CameraPermissionPrompt onEnable={() => void camera.start()} />
+          {phase === 'complete' && result && (
+            <div className="sr-overlay sr-done">
+              <h2>Pantry organized</h2>
+              <p>
+                Highest reach {result.maxReachPct}% above shoulder, arm balance {result.symmetryPct}%,
+                finished in {result.durationSec}s.
+              </p>
+              <button type="button" className="sr-button" onClick={restart}>
+                Play again
+              </button>
+            </div>
           )}
-          {camera.status === 'starting' && <CameraBusy label="Initializing camera feed..." />}
-          {camera.status === 'error' && camera.error && (
-            <CameraErrorOverlay
-              guidance={describeCameraError(camera.error)}
-              onRetry={() => void camera.start()}
-            />
-          )}
-          {tracker.status === 'error' && tracker.error && (
-            <CameraErrorOverlay
-              guidance={describeTrackerError(tracker.error)}
-              onRetry={tracker.retry}
-            />
-          )}
+        </div>
+        <p className="sr-hint">
+          Hold a hand over an item on the counter to pick it up, then lift it into the dashed green slot.
+        </p>
+      </section>
 
-          {/* Active Arm Badge */}
-          <div className="shelf-reach-overlay-badge">
-            <span
-              className={`w-2.5 h-2.5 rounded-full ${
-                telemetry.isTrackingValid ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
-              }`}
-            />
-            <span>TRACKING: {telemetry.activeArm.toUpperCase()} ARM</span>
-            <span className="text-sky-300 font-bold ml-1">
-              Reach: {telemetry.currentReachPercent}%
-            </span>
-          </div>
+      <aside className="sr-panel" aria-label="Session telemetry">
+        <h2 className="sr-panel-title">Session</h2>
 
-          {/* Score Badge */}
-          <div className="shelf-reach-score-badge">
-            <Trophy className="w-4 h-4 text-amber-400" />
-            <span>{telemetry.itemsArranged} Arranged</span>
-            <span className="text-xs text-emerald-400 ml-1 font-bold">
-              ({telemetry.totalScore} PTS)
-            </span>
-          </div>
+        <div className="sr-stat sr-stat-main">
+          <span className="sr-stat-label">Max vertical reach</span>
+          <span className="sr-stat-value">{telemetry.maxReachPct}%</span>
+          <span className="sr-stat-sub">above shoulder line (now {telemetry.currentReachPct}%)</span>
+        </div>
 
-          {/* Live Coaching & Guidance Banner */}
-          <div className="shelf-reach-feedback-banner">
-            <Sparkles className="w-4 h-4 text-sky-400 flex-shrink-0 animate-spin" />
-            <span>{telemetry.feedbackMessage}</span>
+        <div className="sr-stat">
+          <span className="sr-stat-label">Bilateral symmetry</span>
+          <span className="sr-stat-value">{telemetry.symmetryPct}%</span>
+        </div>
+
+        <div className="sr-stat">
+          <span className="sr-stat-label">Items arranged</span>
+          <span className="sr-stat-value">
+            {telemetry.itemsPlaced} / {telemetry.itemsTotal}
+          </span>
+          <div className="sr-bar" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
+            <div className="sr-bar-fill" style={{ width: `${progress}%` }} />
           </div>
         </div>
 
-        {/* Right: Telemetry Dashboard */}
-        <div className="shelf-reach-telemetry">
-          {/* Key Stats Cards Grid */}
-          <div className="shelf-reach-stats-grid">
-            {/* Max Vertical Reach Height */}
-            <div className="shelf-reach-stat-card">
-              <span className="shelf-reach-stat-label">Max Vertical Reach</span>
-              <div className="shelf-reach-stat-value">
-                {telemetry.maxReachHeightPercent}
-                <span className="shelf-reach-stat-unit">%</span>
-              </div>
-              <div className="shelf-reach-stat-sub">
-                Above Shoulder Baseline
-              </div>
-            </div>
-
-            {/* Bilateral Symmetry */}
-            <div className="shelf-reach-stat-card">
-              <span className="shelf-reach-stat-label">Bilateral Symmetry</span>
-              <div className="shelf-reach-stat-value">
-                {telemetry.bilateralSymmetryPercent}
-                <span className="shelf-reach-stat-unit">%</span>
-              </div>
-              <div className="shelf-reach-stat-sub">
-                L: {telemetry.leftPeakReachPercent}% | R: {telemetry.rightPeakReachPercent}%
-              </div>
-            </div>
-
-            {/* Items Arranged */}
-            <div className="shelf-reach-stat-card">
-              <span className="shelf-reach-stat-label">Items Arranged</span>
-              <div className="shelf-reach-stat-value">
-                {telemetry.itemsArranged}
-                <span className="shelf-reach-stat-unit">/ 10</span>
-              </div>
-              <div className="shelf-reach-stat-sub neutral">
-                Held: {telemetry.heldItemName}
-              </div>
-            </div>
-
-            {/* Reach Speed */}
-            <div className="shelf-reach-stat-card">
-              <span className="shelf-reach-stat-label flex items-center gap-1">
-                <Gauge className="w-3 h-3 text-slate-400" />
-                Reach Velocity
-              </span>
-              <div className="shelf-reach-stat-value">
-                {telemetry.reachSpeed}
-                <span className="shelf-reach-stat-unit">m/s</span>
-              </div>
-              <div className="shelf-reach-stat-sub">
-                Vertical Arm Speed
-              </div>
-            </div>
-          </div>
-
-          {/* Live Vertical Reach Height Gauge */}
-          <div className="shelf-reach-gauge-card">
-            <div className="shelf-reach-gauge-header">
-              <h3>Live Vertical Reach Height</h3>
-              <span className="shelf-reach-gauge-badge">
-                {telemetry.currentReachPercent >= 80
-                  ? 'HIGH SHELF ZONE'
-                  : telemetry.currentReachPercent >= 30
-                  ? 'MID SHELF ZONE'
-                  : 'COUNTER LEVEL'}
-              </span>
-            </div>
-
-            <div className="shelf-reach-gauge-track">
-              <div
-                className="shelf-reach-gauge-fill"
-                style={{ width: `${gaugePercent}%` }}
-              />
-            </div>
-
-            <div className="shelf-reach-gauge-markers">
-              <span>0% (Shoulder)</span>
-              <span className="font-semibold text-sky-600">
-                {telemetry.currentReachPercent}% Current
-              </span>
-              <span>120% (High Reach)</span>
-            </div>
-          </div>
-
-          {/* 3-Tier Shelf Levels Indicator */}
-          <div className="shelf-reach-tiers-card">
-            <h3>Pantry Shelf Tiers</h3>
-            <div className="shelf-reach-tiers-grid">
-              <div className="shelf-reach-tier-item">
-                <span className="shelf-reach-tier-name">Counter</span>
-                <span className="shelf-reach-tier-sub">Pickup Zone</span>
-              </div>
-              <div
-                className={`shelf-reach-tier-item ${
-                  telemetry.currentReachPercent >= 30 && telemetry.currentReachPercent < 80 ? 'active' : ''
-                }`}
-              >
-                <span className="shelf-reach-tier-name">Mid Shelf</span>
-                <span className="shelf-reach-tier-sub">Eye Level (~40%)</span>
-              </div>
-              <div
-                className={`shelf-reach-tier-item ${
-                  telemetry.currentReachPercent >= 80 ? 'active' : ''
-                }`}
-              >
-                <span className="shelf-reach-tier-name">High Shelf</span>
-                <span className="shelf-reach-tier-sub">Overhead (&gt;80%)</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Session Repetitions Telemetry Log */}
-          <div className="shelf-reach-log-card">
-            <div className="shelf-reach-log-header">
-              <h3>Session Telemetry Log</h3>
-              <span className="text-xs text-slate-500 font-medium">
-                {telemetry.reps.length} arranged items
-              </span>
-            </div>
-
-            <div className="shelf-reach-log-list">
-              {telemetry.reps.length === 0 ? (
-                <div className="text-xs text-slate-400 py-4 text-center">
-                  No items placed yet. Reach down to counter to pick up an item!
-                </div>
-              ) : (
-                telemetry.reps.map((rep) => (
-                  <div key={rep.id} className="shelf-reach-log-item">
-                    <div className="shelf-reach-log-item-details">
-                      <div className="shelf-reach-log-item-title">
-                        #{rep.id} · {rep.itemName} ({rep.arm.toUpperCase()})
-                      </div>
-                      <div className="shelf-reach-log-item-meta">
-                        Placed on: {rep.targetShelf.toUpperCase()} Shelf | Reach: {rep.reachHeightPercent}% | Speed: {rep.reachVelocity} m/s
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Stored Results Footer Card */}
-          <div className="shelf-reach-stored-card">
-            <div className="flex items-center gap-1.5">
-              <Layers className="w-3.5 h-3.5 text-slate-500" />
-              <span>
-                {showSavedToast
-                  ? 'Data successfully saved to localStorage!'
-                  : savedSession
-                  ? `Last session: ${savedSession.itemsArranged} items placed (${savedSession.maxReachHeightPercent}% Peak Reach)`
-                  : 'Ready to record clinical session data'}
-              </span>
-            </div>
-            {savedSession && (
-              <span className="font-semibold text-sky-600">
-                Score: {savedSession.totalScore}
-              </span>
-            )}
-          </div>
+        <div className="sr-stat">
+          <span className="sr-stat-label">Reach speed</span>
+          <span className="sr-stat-value">{telemetry.reachSpeed.toFixed(1)} m/s</span>
         </div>
-      </div>
+
+        <button type="button" className="sr-button sr-button-quiet" onClick={restart}>
+          Restart session
+        </button>
+      </aside>
     </div>
   );
-}
-
-/* ========================================================================== */
-/* Custom 2D Flat Pantry Shelf Canvas Renderer                                */
-/* ========================================================================== */
-
-function drawShelfLayers(
-  ctx: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  item: PantryItem,
-  slot: ShelfSlot,
-  telemetry: ShelfReachTelemetry,
-  particles: ShelfParticle[],
-  floatingTexts: FloatingText[],
-  landmarks?: { x: number; y: number }[]
-): void {
-  // 1. Draw 3-Tier 2D Flat Shelves
-  const shelfYPositions = [
-    { label: 'HIGH SHELF', y: 0.22, height: 14 },
-    { label: 'MID SHELF', y: 0.50, height: 14 },
-    { label: 'BOTTOM COUNTER', y: 0.82, height: 18 },
-  ];
-
-  ctx.save();
-  shelfYPositions.forEach((sh) => {
-    const sy = sh.y * height;
-    // Wooden / clean modern shelf board
-    const shelfGrad = ctx.createLinearGradient(0, sy, width, sy);
-    shelfGrad.addColorStop(0, 'rgba(51, 65, 85, 0.85)');
-    shelfGrad.addColorStop(0.5, 'rgba(71, 85, 105, 0.95)');
-    shelfGrad.addColorStop(1, 'rgba(51, 65, 85, 0.85)');
-
-    ctx.fillStyle = shelfGrad;
-    ctx.fillRect(0, sy, width, sh.height);
-
-    // Shelf top highlight
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
-    ctx.fillRect(0, sy, width, 2);
-
-    // Shelf Label (flipped horizontally for mirrored canvas)
-    ctx.save();
-    ctx.translate(60, sy + sh.height / 2);
-    ctx.scale(-1, 1);
-    ctx.font = 'bold 11px Inter, sans-serif';
-    ctx.fillStyle = '#cbd5e1';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(sh.label, 0, 0);
-    ctx.restore();
-  });
-  ctx.restore();
-
-  // 2. Draw Target Dashed Slot on the requested shelf
-  const slotX = slot.x * width;
-  const slotY = slot.y * height;
-  const slotW = slot.width * width;
-  const slotH = slot.height * height;
-
-  ctx.save();
-  ctx.beginPath();
-  ctx.roundRect?.(slotX - slotW / 2, slotY - slotH + 10, slotW, slotH, 8);
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = '#34d399';
-  ctx.setLineDash([8, 6]);
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  // Slot glow
-  ctx.fillStyle = 'rgba(16, 185, 129, 0.15)';
-  ctx.fill();
-
-  // Slot prompt label
-  ctx.save();
-  ctx.translate(slotX, slotY - slotH / 2);
-  ctx.scale(-1, 1);
-  ctx.font = 'bold 12px Inter, sans-serif';
-  ctx.fillStyle = '#34d399';
-  ctx.textAlign = 'center';
-  ctx.fillText('PLACE HERE', 0, 0);
-  ctx.restore();
-
-  ctx.restore();
-
-  // 3. Draw 2D Illustrated Pantry Item
-  const ix = item.x * width;
-  const iy = item.y * height;
-  const iw = item.width * width;
-  const ih = item.height * height;
-
-  ctx.save();
-  // Item body
-  ctx.fillStyle = item.color;
-  ctx.shadowColor = item.color;
-  ctx.shadowBlur = item.isHeld ? 16 : 8;
-  ctx.beginPath();
-  ctx.roundRect?.(ix - iw / 2, iy - ih + 10, iw, ih, 8);
-  ctx.fill();
-
-  // Border
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = '#ffffff';
-  ctx.stroke();
-
-  // Item Emoji & Name (flipped horizontally so it reads normally)
-  ctx.save();
-  ctx.translate(ix, iy - ih / 2 + 5);
-  ctx.scale(-1, 1);
-  ctx.font = '22px Inter, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(item.emoji, 0, -8);
-  ctx.font = 'bold 11px Inter, sans-serif';
-  ctx.fillStyle = '#ffffff';
-  ctx.fillText(item.name, 0, 14);
-  ctx.restore();
-
-  ctx.restore();
-
-  // 4. Draw Wrist Hand Cursor
-  if (landmarks) {
-    const isLeft = telemetry.activeArm === 'left';
-    const wristIdx = isLeft ? 15 : 16;
-    const wristPt = landmarks[wristIdx];
-
-    if (wristPt) {
-      const wx = wristPt.x * width;
-      const wy = wristPt.y * height;
-
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(wx, wy, 16, 0, Math.PI * 2);
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = item.isHeld ? '#10b981' : '#38bdf8';
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.arc(wx, wy, 5, 0, Math.PI * 2);
-      ctx.fillStyle = item.isHeld ? '#10b981' : '#38bdf8';
-      ctx.fill();
-
-      // Tether line connecting wrist to held item
-      if (item.isHeld) {
-        ctx.beginPath();
-        ctx.moveTo(wx, wy);
-        ctx.lineTo(ix, iy);
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = 'rgba(52, 211, 153, 0.7)';
-        ctx.stroke();
-      }
-
-      ctx.restore();
-    }
-  }
-
-  // 5. Draw Particles
-  for (const p of particles) {
-    p.x += p.vx;
-    p.y += p.vy;
-    p.vy += 0.0003;
-    p.life += 1;
-    p.alpha = Math.max(0, 1 - p.life / p.maxLife);
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(p.x * width, p.y * height, p.size, 0, Math.PI * 2);
-    ctx.fillStyle = p.color;
-    ctx.globalAlpha = p.alpha;
-    ctx.shadowColor = p.color;
-    ctx.shadowBlur = 8;
-    ctx.fill();
-    ctx.restore();
-  }
-
-  // 6. Draw Floating Texts
-  for (const ft of floatingTexts) {
-    ft.y -= 0.0015;
-    ft.life += 1;
-    ft.alpha = Math.max(0, 1 - ft.life / ft.maxLife);
-
-    ctx.save();
-    ctx.translate(ft.x * width, ft.y * height);
-    ctx.scale(-1, 1);
-    ctx.font = 'bold 20px Inter, sans-serif';
-    ctx.fillStyle = ft.color;
-    ctx.globalAlpha = ft.alpha;
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
-    ctx.shadowBlur = 6;
-    ctx.textAlign = 'center';
-    ctx.fillText(ft.text, 0, 0);
-    ctx.restore();
-  }
 }

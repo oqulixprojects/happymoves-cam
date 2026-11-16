@@ -376,6 +376,77 @@
   color: #94a3b8;
 }
 
+.sr-layout {
+  --sr-ink: #17302f;
+  --sr-muted: #52706d;
+  --sr-surface: #ffffff;
+  --sr-ground: #e9f0ee;
+  --sr-line: #cddbd8;
+  --sr-accent: #1f8a5b;
+  --sr-accent-ink: #ffffff;
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 20px;
+  padding: 20px;
+  color: var(--sr-ink);
+  background: var(--sr-ground);
+  min-height: 100%;
+  box-sizing: border-box;
+}
+
+.sr-stage {
+  min-width: 0;
+}
+
+.sr-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: #0d1f1e;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* Video + tracker overlay are mirrored (selfie view); the game canvas is not,
+   because its coordinates are already mirrored in code so text stays readable. */
+.sr-video,
+.sr-tracker,
+.sr-game {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.sr-video {
+  object-fit: fill;
+  transform: scaleX(-1);
+}
+
+.sr-tracker {
+  transform: scaleX(-1);
+  pointer-events: none;
+}
+
+.sr-game {
+  pointer-events: none;
+}
+
+.sr-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+  color: #ffffff;
+  background: rgba(8, 28, 26, 0.7);
+}
+
 /* Session Reps Log */
 .shelf-reach-log-card {
   background: #ffffff;
@@ -447,4 +518,109 @@
   justify-content: space-between;
   font-size: 0.72rem;
   color: #475569;
+}
+
+.sr-done h2 {
+  margin: 0;
+  font-size: 1.6rem;
+}
+
+.sr-done p {
+  margin: 0;
+  max-width: 34ch;
+  line-height: 1.5;
+}
+
+.sr-hint {
+  margin: 10px 2px 0;
+  color: var(--sr-muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.sr-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-self: start;
+  padding: 18px;
+  background: var(--sr-surface);
+  border: 1px solid var(--sr-line);
+  border-radius: 12px;
+}
+
+.sr-panel-title {
+  margin: 0 0 2px;
+  font-size: 1.05rem;
+}
+
+.sr-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--sr-line);
+}
+
+.sr-stat-label {
+  font-size: 0.85rem;
+  color: var(--sr-muted);
+}
+
+.sr-stat-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.sr-stat-main .sr-stat-value {
+  font-size: 2.4rem;
+  color: var(--sr-accent);
+}
+
+.sr-stat-sub {
+  font-size: 0.8rem;
+  color: var(--sr-muted);
+}
+
+.sr-bar {
+  height: 8px;
+  margin-top: 6px;
+  background: var(--sr-line);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.sr-bar-fill {
+  height: 100%;
+  background: var(--sr-accent);
+  transition: width 0.25s ease;
+}
+
+.sr-button {
+  padding: 10px 18px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--sr-accent-ink);
+  background: var(--sr-accent);
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.sr-button:focus-visible {
+  outline: 3px solid #0b5c3b;
+  outline-offset: 2px;
+}
+
+.sr-button-quiet {
+  color: var(--sr-ink);
+  background: transparent;
+  border: 1px solid var(--sr-line);
+}
+
+@media (max-width: 860px) {
+  .sr-layout {
+    grid-template-columns: 1fr;
+  }
 }

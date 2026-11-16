@@ -1,503 +1,322 @@
-import type { Landmark } from '@/services/tracking/types';
 import type {
-  TrackedArm,
-  ItemType,
-  PantryItem,
-  ShelfSlot,
-  ShelfRecord,
-  ShelfReachTelemetry,
-  StoredShelfReachData,
-  ShelfParticle,
-  FloatingText,
+  GameState,
+  ItemKind,
+  Landmark,
+  Pt,
+  SessionResult,
+  ShelfItem,
+  Side,
+  TargetSlot,
+  Telemetry,
 } from './types';
 
-export const LOCAL_STORAGE_KEY = 'task4_shelf_reach_results';
-export const LOCAL_STORAGE_FALLBACK_KEY = 'task4_results';
+// ---------------------------------------------------------------- constants
+// Canvas dimensions (width and height in pixels)
+export const W = 640;
+export const H = 480;
+export const TOTAL_ITEMS = 10;  // Total number of items
+export const STORAGE_KEY = 'task4_results';  // Key used to store completed game results
+// Width and height of each pantry item
+export const ITEM_W = 56;
+export const ITEM_H = 72;
+/** y of the top surface of each shelf board (canvas px) */
+export const SHELF_Y = { counter: 430, middle: 290, top: 150 } as const;
 
-/** Standard 2D Euclidean distance */
-export function calculateDistance(
-  a: { x: number; y: number },
-  b: { x: number; y: number }
-): number {
-  return Math.hypot(a.x - b.x, a.y - b.y);
+const TORSO_METERS = 0.5; // assumed real torso length, used for the m/s estimate
+const MIN_VISIBILITY = 0.5;  // Minimum visibility confidence required for a body landmark
+const PICK_DWELL_MS = 250;  // User must keep the wrist over an item for 250 milliseconds to pick it up
+const PICK_PAD = 18;
+const SNAP_DIST = 48;
+const SMOOTH = 0.45;
+const SIDES: Side[] = ['left', 'right'];
+const KINDS: ItemKind[] = ['cereal', 'juice', 'soup', 'honey'];  // Types of pantry items
+const COUNTER_X = [120, 250, 380, 510];
+const SLOT_X = [100, 210, 320, 430, 540];
+
+// MediaPipe pose landmark indices
+const LM = { LS: 11, RS: 12, LW: 15, RW: 16, LH: 23, RH: 24 } as const;
+
+// ------------------------------------------------------------------- math
+/** Accepts whatever shape the tracker gives us and returns 33 landmarks (or null). */
+export function extractPose(raw: unknown): Landmark[] | null {
+  if (!raw) return null;
+  let cand: unknown = raw;
+  if (!Array.isArray(cand) && typeof cand === 'object' && cand !== null && 'landmarks' in cand) {
+    cand = (cand as { landmarks: unknown }).landmarks;
+  }
+  if (Array.isArray(cand) && cand.length > 0 && Array.isArray(cand[0])) {
+    cand = cand[0]; // first person
+  }
+  if (!Array.isArray(cand) || cand.length < 25) return null;
+  return cand as Landmark[];
+}
+
+const visible = (l: Landmark | undefined): l is Landmark =>
+  !!l && (l.visibility ?? 1) >= MIN_VISIBILITY;
+
+/** Distance between shoulder midpoint and hip midpoint (normalised units). */
+export function torsoLength(lm: Landmark[]): number {
+  const sx = (lm[LM.LS].x + lm[LM.RS].x) / 2;
+  const sy = (lm[LM.LS].y + lm[LM.RS].y) / 2;
+  const hx = (lm[LM.LH].x + lm[LM.RH].x) / 2;
+  const hy = (lm[LM.LH].y + lm[LM.RH].y) / 2;
+  return Math.hypot(sx - hx, sy - hy);
 }
 
 /**
- * Section 4 Relative Reach Height:
- * Relative Reach Height = (y_shoulder - y_wrist) / Torso Length * 100%
- * Torso Length = |y_hip - y_shoulder|
- * Positive values indicate reaching above shoulder level.
+ * Relative reach height in % of torso length.
+ * Image y grows downward, so (shoulderY - wristY) > 0 means wrist above shoulder.
  */
-export function calculateRelativeReachHeight(
-  shoulder: Landmark,
-  wrist: Landmark,
-  hip: Landmark
-): number {
-  const torsoLength = Math.max(0.12, Math.abs(hip.y - shoulder.y));
-  const reachDelta = shoulder.y - wrist.y;
-  const ratio = (reachDelta / torsoLength) * 100;
-  return Math.round(ratio);
+export function reachPct(shoulderY: number, wristY: number, torso: number): number {
+  return ((shoulderY - wristY) / torso) * 100;
+}
+
+/** 100% = both arms reached equally high. */
+export function symmetry(maxLeft: number, maxRight: number): number {
+  const hi = Math.max(maxLeft, maxRight);
+  if (hi <= 0) return 100;
+  return (Math.max(Math.min(maxLeft, maxRight), 0) / hi) * 100;
+}
+
+/** Normalised landmark -> canvas pixels, mirrored for selfie view. */
+function toCanvas(l: Landmark): Pt {
+  return { x: (1 - l.x) * W, y: l.y * H };
+}
+
+// ------------------------------------------------------------ game helpers
+function makeItem(id: number, counterSlot: number): ShelfItem {
+  return {
+    id,
+    kind: KINDS[id % KINDS.length],
+    x: COUNTER_X[counterSlot],
+    y: SHELF_Y.counter - ITEM_H / 2,
+    state: 'counter',
+    counterSlot,
+  };
+}
+
+export function createGame(): GameState {
+  return {
+    phase: 'waiting',
+    items: [0, 1, 2, 3].map((i) => makeItem(i, i)),
+    placed: 0,
+    spawned: 4,
+    heldId: null,
+    heldBy: null,
+    heldLostAt: 0,
+    dwellId: null,
+    dwellSide: null,
+    dwellStart: 0,
+    wrists: { left: null, right: null },
+    reach: { left: 0, right: 0 },
+    maxReach: { left: 0, right: 0 },
+    prevReach: { left: null, right: null },
+    speed: 0,
+    lastT: 0,
+    startedAt: 0,
+    stars: [],
+  };
+}
+
+/** Next dashed target slot: alternates middle shelf / top shelf. */
+export function getTarget(placed: number): TargetSlot {
+  const shelf = placed % 2 === 0 ? 'middle' : 'top';
+  const idx = Math.floor(placed / 2) % SLOT_X.length;
+  return { x: SLOT_X[idx], y: SHELF_Y[shelf] - ITEM_H / 2, shelf };
+}
+
+function release(g: GameState, item: ShelfItem): void {
+  item.state = 'counter';
+  item.x = COUNTER_X[item.counterSlot];
+  item.y = SHELF_Y.counter - ITEM_H / 2;
+  g.heldId = null;
+  g.heldBy = null;
+  g.heldLostAt = 0;
+}
+
+function burstStars(g: GameState, x: number, y: number): void {
+  for (let i = 0; i < 14; i++) {
+    const a = (Math.PI * 2 * i) / 14 + Math.random() * 0.4;
+    const s = 80 + Math.random() * 120;
+    g.stars.push({
+      x,
+      y,
+      vx: Math.cos(a) * s,
+      vy: Math.sin(a) * s - 40,
+      life: 0.8 + Math.random() * 0.4,
+      size: 6 + Math.random() * 6,
+    });
+  }
+}
+
+export function stepStars(g: GameState, dt: number): void {
+  for (const s of g.stars) {
+    s.x += s.vx * dt;
+    s.y += s.vy * dt;
+    s.vy += 220 * dt;
+    s.life -= dt;
+  }
+  g.stars = g.stars.filter((s) => s.life > 0);
 }
 
 /**
- * Calculates Bilateral Reaching Symmetry:
- * Symmetry = (1 - |PeakLeft - PeakRight| / max(PeakLeft, PeakRight, 1)) * 100%
+ * Feed one pose frame into the game.
+ * Returns true when an item was just snapped into its slot (play the click).
  */
-export function calculateBilateralSymmetry(leftPeak: number, rightPeak: number): number {
-  const denom = Math.max(leftPeak, rightPeak, 1);
-  const diff = Math.abs(leftPeak - rightPeak);
-  return Math.max(0, Math.min(100, Math.round((1 - diff / denom) * 100)));
+export function processPose(g: GameState, lm: Landmark[] | null, now: number): boolean {
+  const dt = g.lastT ? Math.max((now - g.lastT) / 1000, 0.001) : 0.033;
+  g.lastT = now;
+
+  if (!lm || g.phase === 'complete') {
+    g.wrists.left = null;
+    g.wrists.right = null;
+    g.speed *= 0.9;
+    return false;
+  }
+  if (g.phase === 'waiting') {
+    g.phase = 'playing';
+    g.startedAt = now;
+  }
+
+  // ---- reach height + wrist positions
+  const torso = torsoLength(lm);
+  const torsoOk = torso > 0.05;
+  let bestSpeed = 0;
+
+  for (const side of SIDES) {
+    const sh = lm[side === 'left' ? LM.LS : LM.RS];
+    const wr = lm[side === 'left' ? LM.LW : LM.RW];
+    if (!visible(sh) || !visible(wr)) {
+      g.wrists[side] = null;
+      g.prevReach[side] = null;
+      continue;
+    }
+    const p = toCanvas(wr);
+    const prev = g.wrists[side];
+    g.wrists[side] = prev
+      ? { x: prev.x + (p.x - prev.x) * SMOOTH, y: prev.y + (p.y - prev.y) * SMOOTH }
+      : p;
+
+    if (torsoOk) {
+      const pct = reachPct(sh.y, wr.y, torso);
+      g.reach[side] = pct;
+      if (pct > g.maxReach[side]) g.maxReach[side] = pct;
+      const pp = g.prevReach[side];
+      if (pp !== null) {
+        bestSpeed = Math.max(bestSpeed, ((pct - pp) / 100) * TORSO_METERS / dt);
+      }
+      g.prevReach[side] = pct;
+    }
+  }
+  g.speed += (bestSpeed - g.speed) * 0.2;
+
+  // ---- carrying an item
+  if (g.heldId !== null && g.heldBy) {
+    const held = g.items.find((i) => i.id === g.heldId);
+    if (!held) {
+      g.heldId = null;
+      g.heldBy = null;
+      return false;
+    }
+    const w = g.wrists[g.heldBy];
+    if (!w) {
+      if (!g.heldLostAt) g.heldLostAt = now;
+      else if (now - g.heldLostAt > 2000) release(g, held);
+      return false;
+    }
+    g.heldLostAt = 0;
+    held.x = w.x;
+    held.y = w.y;
+
+    const t = getTarget(g.placed);
+    if (Math.hypot(w.x - t.x, w.y - t.y) < SNAP_DIST) {
+      held.state = 'placed';
+      held.x = t.x;
+      held.y = t.y;
+      g.heldId = null;
+      g.heldBy = null;
+      g.placed += 1;
+      burstStars(g, t.x, t.y);
+      if (g.spawned < TOTAL_ITEMS) {
+        g.items.push(makeItem(g.spawned, held.counterSlot));
+        g.spawned += 1;
+      }
+      if (g.placed >= TOTAL_ITEMS) g.phase = 'complete';
+      return true;
+    }
+    return false;
+  }
+
+  // ---- looking for an item to pick up (hover for PICK_DWELL_MS)
+  let hit: { item: ShelfItem; side: Side } | null = null;
+  for (const side of SIDES) {
+    const w = g.wrists[side];
+    if (!w) continue;
+    const item = g.items.find(
+      (i) =>
+        i.state === 'counter' &&
+        Math.abs(w.x - i.x) < ITEM_W / 2 + PICK_PAD &&
+        Math.abs(w.y - i.y) < ITEM_H / 2 + PICK_PAD,
+    );
+    if (item) {
+      hit = { item, side };
+      break;
+    }
+  }
+
+  if (!hit) {
+    g.dwellId = null;
+    g.dwellSide = null;
+  } else if (g.dwellId === hit.item.id && g.dwellSide === hit.side) {
+    if (now - g.dwellStart >= PICK_DWELL_MS) {
+      hit.item.state = 'held';
+      g.heldId = hit.item.id;
+      g.heldBy = hit.side;
+      g.heldLostAt = 0;
+      g.dwellId = null;
+      g.dwellSide = null;
+    }
+  } else {
+    g.dwellId = hit.item.id;
+    g.dwellSide = hit.side;
+    g.dwellStart = now;
+  }
+  return false;
 }
 
-/** Pre-defined item catalog for 2D flat pantry shelves */
-const ITEM_TEMPLATES: Array<{
-  type: ItemType;
-  name: string;
-  emoji: string;
-  color: string;
-  targetShelf: 'middle' | 'top';
-}> = [
-  { type: 'cereal', name: 'Oat Cereal', emoji: '🥣', color: '#f59e0b', targetShelf: 'top' },
-  { type: 'juice', name: 'Orange Juice', emoji: '🧃', color: '#f97316', targetShelf: 'middle' },
-  { type: 'soup', name: 'Tomato Soup', emoji: '🥫', color: '#ef4444', targetShelf: 'middle' },
-  { type: 'honey', name: 'Wild Honey', emoji: '🍯', color: '#eab308', targetShelf: 'top' },
-  { type: 'oil', name: 'Olive Oil', emoji: '🫒', color: '#10b981', targetShelf: 'top' },
-];
-
-let nextItemId = 1;
-export function createPantryItem(): PantryItem {
-  const template = ITEM_TEMPLATES[(nextItemId - 1) % ITEM_TEMPLATES.length];
-  nextItemId++;
-
-  // Staged at bottom counter (y = 0.82)
+// -------------------------------------------------------- telemetry / save
+export function buildTelemetry(g: GameState): Telemetry {
   return {
-    id: `pantry-item-${nextItemId}`,
-    type: template.type,
-    name: template.name,
-    emoji: template.emoji,
-    color: template.color,
-    x: 0.50,
-    y: 0.82,
-    width: 0.12,
-    height: 0.14,
-    currentShelf: 'counter',
-    targetShelf: template.targetShelf,
-    isHeld: false,
-    isPlaced: false,
+    currentReachPct: Math.round(Math.max(g.reach.left, g.reach.right, 0)),
+    maxReachPct: Math.round(Math.max(g.maxReach.left, g.maxReach.right)),
+    symmetryPct: Math.round(symmetry(g.maxReach.left, g.maxReach.right)),
+    itemsPlaced: g.placed,
+    itemsTotal: TOTAL_ITEMS,
+    reachSpeed: Math.round(Math.abs(g.speed) * 10) / 10,
   };
 }
 
-export function createShelfSlot(targetShelf: 'middle' | 'top'): ShelfSlot {
-  if (targetShelf === 'top') {
-    // Top High Shelf at y = 0.22
-    return {
-      level: 'top',
-      label: 'High Shelf (Top Tier)',
-      x: 0.50,
-      y: 0.22,
-      width: 0.15,
-      height: 0.16,
-    };
-  }
-  // Middle Shelf at y = 0.50
+export function buildResult(g: GameState): SessionResult {
+  const t = buildTelemetry(g);
   return {
-    level: 'middle',
-    label: 'Mid Shelf (Eye Level)',
-    x: 0.50,
-    y: 0.50,
-    width: 0.15,
-    height: 0.16,
+    date: new Date().toISOString(),
+    durationSec: g.startedAt ? Math.round((performance.now() - g.startedAt) / 1000) : 0,
+    itemsPlaced: g.placed,
+    maxReachPct: t.maxReachPct,
+    maxReachLeftPct: Math.round(g.maxReach.left),
+    maxReachRightPct: Math.round(g.maxReach.right),
+    symmetryPct: t.symmetryPct,
   };
 }
 
-/* ========================================================================== */
-/* Web Audio API Sound Effects Synthesizer                                   */
-/* ========================================================================== */
-
-let sharedAudioCtx: AudioContext | null = null;
-
-function getAudioContext(): AudioContext | null {
-  if (typeof window === 'undefined') return null;
-  if (!sharedAudioCtx) {
-    const AudioCtx =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    if (AudioCtx) {
-      sharedAudioCtx = new AudioCtx();
-    }
-  }
-  if (sharedAudioCtx && sharedAudioCtx.state === 'suspended') {
-    void sharedAudioCtx.resume();
-  }
-  return sharedAudioCtx;
-}
-
-/** Snap lock click sound when placed onto shelf slot */
-export function playSnapClick(): void {
+export function saveResult(r: SessionResult): void {
   try {
-    const ctx = getAudioContext();
-    if (!ctx) return;
-    const now = ctx.currentTime;
-
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(320, now);
-    osc.frequency.exponentialRampToValueAtTime(880, now + 0.12);
-
-    gain.gain.setValueAtTime(0.18, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.start(now);
-    osc.stop(now + 0.18);
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    const list: SessionResult[] = Array.isArray(parsed) ? (parsed as SessionResult[]) : [];
+    list.push(r);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(list.slice(-50)));
   } catch {
-    // Ignored
-  }
-}
-
-/** Item pickup latch sound */
-export function playPickupSound(): void {
-  try {
-    const ctx = getAudioContext();
-    if (!ctx) return;
-    const now = ctx.currentTime;
-
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(440, now);
-    osc.frequency.exponentialRampToValueAtTime(660, now + 0.08);
-
-    gain.gain.setValueAtTime(0.12, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.start(now);
-    osc.stop(now + 0.12);
-  } catch {
-    // Ignored
-  }
-}
-
-/** Celebration chime on completed arrangement */
-export function playShelfPlacementChime(): void {
-  try {
-    const ctx = getAudioContext();
-    if (!ctx) return;
-    const now = ctx.currentTime;
-    const freqs = [587.33, 739.99, 880.0, 1174.66]; // D5, F#5, A5, D6
-
-    freqs.forEach((freq, idx) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(freq, now + idx * 0.07);
-
-      gain.gain.setValueAtTime(0, now + idx * 0.07);
-      gain.gain.linearRampToValueAtTime(0.16, now + idx * 0.07 + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.42);
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      osc.start(now + idx * 0.07);
-      osc.stop(now + idx * 0.07 + 0.45);
-    });
-  } catch {
-    // Ignored
-  }
-}
-
-/* ========================================================================== */
-/* Particle and Visual Burst Generators                                       */
-/* ========================================================================== */
-
-export function createShelfBurst(cx: number, cy: number, color = '#10b981'): ShelfParticle[] {
-  const particles: ShelfParticle[] = [];
-  const count = 32;
-
-  for (let i = 0; i < count; i++) {
-    const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.4;
-    const speed = 0.004 + Math.random() * 0.008;
-    particles.push({
-      x: cx,
-      y: cy,
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed,
-      color,
-      size: 4 + Math.random() * 5,
-      alpha: 1,
-      life: 0,
-      maxLife: 35 + Math.floor(Math.random() * 20),
-    });
-  }
-  return particles;
-}
-
-export function createFloatingText(cx: number, cy: number, text: string, color = '#34d399'): FloatingText {
-  return {
-    text,
-    x: cx,
-    y: cy - 0.03,
-    alpha: 1,
-    life: 0,
-    maxLife: 42,
-    color,
-  };
-}
-
-/* ========================================================================== */
-/* LocalStorage Persistence Helper                                            */
-/* ========================================================================== */
-
-export function saveResultsToStorage(data: StoredShelfReachData): void {
-  try {
-    const payload = JSON.stringify(data);
-    localStorage.setItem(LOCAL_STORAGE_KEY, payload);
-    localStorage.setItem(LOCAL_STORAGE_FALLBACK_KEY, payload);
-  } catch (err) {
-    console.warn('[ShelfReach] Failed to save results to localStorage:', err);
-  }
-}
-
-export function loadResultsFromStorage(): StoredShelfReachData | null {
-  try {
-    const saved = localStorage.getItem(LOCAL_STORAGE_KEY) || localStorage.getItem(LOCAL_STORAGE_FALLBACK_KEY);
-    if (!saved) return null;
-    return JSON.parse(saved) as StoredShelfReachData;
-  } catch {
-    return null;
-  }
-}
-
-/* ========================================================================== */
-/* Shelf Reach Session State Machine                                          */
-/* ========================================================================== */
-
-export class ShelfReachTracker {
-  activeArm: 'left' | 'right' = 'right';
-
-  currentItem: PantryItem = createPantryItem();
-  targetSlot: ShelfSlot = createShelfSlot('top');
-
-  itemsArranged = 0;
-  totalAttempts = 0;
-  totalScore = 0;
-  streak = 0;
-
-  maxReachHeightPercent = 0;
-  leftPeakReach = 0;
-  rightPeakReach = 0;
-
-  lastWristY = 0;
-  lastTimeMs = 0;
-  currentVelocity = 0; // m/s equivalent
-
-  slotHoverStartTime = 0;
-
-  reps: ShelfRecord[] = [];
-  soundEnabled = true;
-
-  constructor() {
-    this.currentItem = createPantryItem();
-    this.targetSlot = createShelfSlot(this.currentItem.targetShelf);
-  }
-
-  reset(): void {
-    this.currentItem = createPantryItem();
-    this.targetSlot = createShelfSlot(this.currentItem.targetShelf);
-    this.itemsArranged = 0;
-    this.totalAttempts = 0;
-    this.totalScore = 0;
-    this.streak = 0;
-    this.maxReachHeightPercent = 0;
-    this.leftPeakReach = 0;
-    this.rightPeakReach = 0;
-    this.currentVelocity = 0;
-    this.slotHoverStartTime = 0;
-    this.reps = [];
-  }
-
-  update(
-    landmarks: Landmark[] | undefined,
-    selectedArmPref: TrackedArm,
-    nowMs: number,
-    onSnapped?: (x: number, y: number) => void
-  ): ShelfReachTelemetry {
-    // If landmarks missing
-    if (!landmarks || landmarks.length < 33) {
-      return this.buildTelemetry(0, false, 'Stand or sit so hips, shoulders, and arms are visible.');
-    }
-
-    // Left arm: Shoulder 11, Wrist 15, Hip 23
-    // Right arm: Shoulder 12, Wrist 16, Hip 24
-    const lShoulder = landmarks[11];
-    const lWrist = landmarks[15];
-    const lHip = landmarks[23];
-
-    const rShoulder = landmarks[12];
-    const rWrist = landmarks[16];
-    const rHip = landmarks[24];
-
-    const leftReach = calculateRelativeReachHeight(lShoulder, lWrist, lHip);
-    const rightReach = calculateRelativeReachHeight(rShoulder, rWrist, rHip);
-
-    if (leftReach > this.leftPeakReach) this.leftPeakReach = leftReach;
-    if (rightReach > this.rightPeakReach) this.rightPeakReach = rightReach;
-
-    // Determine active arm
-    if (selectedArmPref === 'left') {
-      this.activeArm = 'left';
-    } else if (selectedArmPref === 'right') {
-      this.activeArm = 'right';
-    } else {
-      if (Math.abs(leftReach - rightReach) > 15) {
-        this.activeArm = leftReach > rightReach ? 'left' : 'right';
-      }
-    }
-
-    const activeWrist = this.activeArm === 'left' ? lWrist : rWrist;
-    const currentReach = this.activeArm === 'left' ? leftReach : rightReach;
-
-    if (currentReach > this.maxReachHeightPercent) {
-      this.maxReachHeightPercent = currentReach;
-    }
-
-    // Velocity computation
-    if (this.lastTimeMs > 0) {
-      const dtSec = Math.max(0.001, (nowMs - this.lastTimeMs) / 1000);
-      const dy = Math.abs(activeWrist.y - this.lastWristY);
-      // Rough meter conversion: full torso ~ 0.55m
-      const torsoScale = Math.max(0.12, Math.abs(lHip.y - lShoulder.y));
-      const velocity = ((dy / torsoScale) * 0.55) / dtSec;
-      this.currentVelocity = Number(velocity.toFixed(2));
-    }
-    this.lastWristY = activeWrist.y;
-    this.lastTimeMs = nowMs;
-
-    let feedbackMessage = '';
-
-    // Pick-and-Place State
-    if (!this.currentItem.isHeld) {
-      // Check collision with staged counter item
-      const distToItem = calculateDistance(activeWrist, { x: this.currentItem.x, y: this.currentItem.y });
-      if (distToItem < 0.12) {
-        this.currentItem.isHeld = true;
-        if (this.soundEnabled) playPickupSound();
-        feedbackMessage = `Picked up ${this.currentItem.name}! Lift arm to place on the ${this.targetSlot.label}.`;
-      } else {
-        feedbackMessage = `Lower hand to counter and touch the ${this.currentItem.name} to pick it up.`;
-      }
-    } else {
-      // Held item follows active wrist
-      this.currentItem.x = activeWrist.x;
-      this.currentItem.y = activeWrist.y;
-
-      // Check alignment with target slot
-      const distToSlot = calculateDistance(
-        { x: this.currentItem.x, y: this.currentItem.y },
-        { x: this.targetSlot.x, y: this.targetSlot.y }
-      );
-
-      if (distToSlot < 0.10) {
-        if (this.slotHoverStartTime === 0) {
-          this.slotHoverStartTime = nowMs;
-        }
-
-        const slotHoverDuration = (nowMs - this.slotHoverStartTime) / 1000;
-        feedbackMessage = `In target slot! Hold steady (${(0.4 - slotHoverDuration).toFixed(1)}s)...`;
-
-        // 0.4s hold inside slot snaps it in place
-        if (slotHoverDuration >= 0.4) {
-          this.itemsArranged += 1;
-          this.totalAttempts += 1;
-          this.streak += 1;
-          this.totalScore += 100 + Math.min(50, this.streak * 10);
-
-          if (this.soundEnabled) {
-            playSnapClick();
-            playShelfPlacementChime();
-          }
-
-          onSnapped?.(this.targetSlot.x, this.targetSlot.y);
-
-          const record: ShelfRecord = {
-            id: this.itemsArranged,
-            itemName: this.currentItem.name,
-            arm: this.activeArm,
-            targetShelf: this.targetSlot.level,
-            reachHeightPercent: currentReach,
-            reachVelocity: this.currentVelocity,
-            timestamp: Date.now(),
-          };
-          this.reps = [record, ...this.reps].slice(0, 10);
-
-          this.persistSession();
-
-          // Spawn next item and slot
-          this.currentItem = createPantryItem();
-          this.targetSlot = createShelfSlot(this.currentItem.targetShelf);
-          this.slotHoverStartTime = 0;
-
-          feedbackMessage = `Placed! +100 PTS! Next item: ${this.currentItem.name} on counter.`;
-        }
-      } else {
-        this.slotHoverStartTime = 0;
-        feedbackMessage = `Elevate arm higher to reach the ${this.targetSlot.label}!`;
-      }
-    }
-
-    return this.buildTelemetry(currentReach, true, feedbackMessage);
-  }
-
-  buildTelemetry(
-    currentReachPercent: number,
-    isTrackingValid: boolean,
-    feedbackMessage: string
-  ): ShelfReachTelemetry {
-    const symmetry = calculateBilateralSymmetry(this.leftPeakReach, this.rightPeakReach);
-
-    return {
-      activeArm: this.activeArm,
-      currentReachPercent,
-      maxReachHeightPercent: this.maxReachHeightPercent,
-      leftPeakReachPercent: this.leftPeakReach,
-      rightPeakReachPercent: this.rightPeakReach,
-      bilateralSymmetryPercent: symmetry,
-      itemsArranged: this.itemsArranged,
-      totalAttempts: this.totalAttempts,
-      reachSpeed: this.currentVelocity,
-      totalScore: this.totalScore,
-      streak: this.streak,
-      feedbackMessage,
-      isHoldingItem: this.currentItem.isHeld,
-      heldItemName: this.currentItem.isHeld ? this.currentItem.name : 'None',
-      reps: this.reps,
-      isTrackingValid,
-    };
-  }
-
-  persistSession(): void {
-    const symmetry = calculateBilateralSymmetry(this.leftPeakReach, this.rightPeakReach);
-    const avgSpeed =
-      this.reps.length > 0
-        ? Number((this.reps.reduce((acc, r) => acc + r.reachVelocity, 0) / this.reps.length).toFixed(2))
-        : 1.0;
-
-    const data: StoredShelfReachData = {
-      lastSessionDate: new Date().toISOString(),
-      itemsArranged: this.itemsArranged,
-      maxReachHeightPercent: this.maxReachHeightPercent,
-      bilateralSymmetry: symmetry,
-      avgReachSpeed: avgSpeed,
-      totalScore: this.totalScore,
-      repsCount: this.reps.length,
-    };
-    saveResultsToStorage(data);
+    /* storage unavailable - ignore */
   }
 }
