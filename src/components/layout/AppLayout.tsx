@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Outlet, Link, useLocation } from 'react-router-dom';
 import {
-  Home,
-  Layers,
-  BookOpen,
+  LayoutGrid,
+  Bookmark,
+  Activity,
   User,
   Menu,
   X,
@@ -17,23 +17,23 @@ import './layout.css';
 interface NavItem {
   to: string;
   label: string;
-  icon: typeof Home;
+  icon: typeof LayoutGrid;
   end?: boolean;
 }
 
 const BOTTOM_NAV: NavItem[] = [
-  { to: ROUTES.home, label: 'Home', icon: Home, end: true },
-  { to: ROUTES.section('upper-body'), label: 'Section', icon: Layers, end: false },
-  { to: ROUTES.section('lower-body'), label: 'Library', icon: BookOpen, end: false },
+  { to: ROUTES.home, label: 'Arena', icon: LayoutGrid, end: true },
+  { to: ROUTES.section('upper-body'), label: 'Upper', icon: Bookmark, end: false },
+  { to: ROUTES.section('lower-body'), label: 'Lower', icon: Activity, end: false },
   { to: '#profile', label: 'Profile', icon: User, end: false },
 ];
 
 const DRAWER_NAV = [
-  { to: ROUTES.home, label: 'Home', icon: Home, end: true },
-  { to: ROUTES.section('upper-body'), label: 'Upper Body', icon: Layers, end: false },
-  { to: ROUTES.section('lower-body'), label: 'Lower Body', icon: Layers, end: false },
-  { to: ROUTES.section('upper-body'), label: 'Library', icon: BookOpen, end: false },
-  { to: '#profile', label: 'Profile', icon: User, end: false },
+  { to: ROUTES.home, label: 'Home Arena', icon: LayoutGrid, end: true },
+  { to: ROUTES.section('upper-body'), label: 'Upper Body Zone', icon: Bookmark, end: false },
+  { to: ROUTES.section('lower-body'), label: 'Lower Body Zone', icon: Activity, end: false },
+  { to: ROUTES.module('lower-body', 'weight-shifting-and-balance', 'full-body-avatar-tracking'), label: '2D Avatar Mode', icon: Activity, end: false },
+  { to: '#profile', label: 'Player Profile', icon: User, end: false },
 ];
 
 export function AppLayout() {
@@ -78,51 +78,42 @@ export function AppLayout() {
             <span className="patient-brand__name">HappyMoves Cam</span>
           </Link>
 
-          {/* Desktop Direct Nav Links */}
-          <nav className="desktop-nav" aria-label="Main Navigation">
-            <NavLink
-              to={ROUTES.home}
-              end
-              className={({ isActive }) => `desktop-nav__link ${isActive ? 'desktop-nav__link--active' : ''}`}
+          {/* Player Profile Avatar & Mobile Drawer Toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <button
+              type="button"
+              onClick={() => setProfileModalOpen(true)}
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #a5b4fc 0%, #6366f1 100%)',
+                color: '#ffffff',
+                border: '2px solid #ffffff',
+                boxShadow: '0 2px 6px rgba(99, 102, 241, 0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                padding: 0,
+              }}
+              title="Player Profile"
+              aria-label="Player Profile"
             >
-              Home
-            </NavLink>
-            <NavLink
-              to={ROUTES.section('upper-body')}
-              className={({ isActive }) => `desktop-nav__link ${isActive ? 'desktop-nav__link--active' : ''}`}
+              HM
+            </button>
+            <button
+              type="button"
+              className="hamburger-btn"
+              onClick={() => setMobileMenuOpen(true)}
+              aria-label="Open navigation menu"
+              aria-expanded={mobileMenuOpen}
             >
-              Upper Body
-            </NavLink>
-            <NavLink
-              to={ROUTES.section('lower-body')}
-              className={({ isActive }) => `desktop-nav__link ${isActive ? 'desktop-nav__link--active' : ''}`}
-            >
-              Lower Body
-            </NavLink>
-            <NavLink
-              to={ROUTES.module('lower-body', 'weight-shifting-and-balance', 'full-body-avatar-tracking')}
-              className={({ isActive }) => `desktop-nav__link ${isActive ? 'desktop-nav__link--active' : ''}`}
-            >
-              2D Avatar
-            </NavLink>
-            <NavLink
-              to={ROUTES.module('upper-body', 'hand-gross-motor', 'hand-opening-and-closing')}
-              className={({ isActive }) => `desktop-nav__link ${isActive ? 'desktop-nav__link--active' : ''}`}
-            >
-              Camera Demo
-            </NavLink>
-          </nav>
-
-          {/* Hamburger Menu Toggle (Screen 1 & 9) */}
-          <button
-            type="button"
-            className="hamburger-btn"
-            onClick={() => setMobileMenuOpen(true)}
-            aria-label="Open navigation menu"
-            aria-expanded={mobileMenuOpen}
-          >
-            <Menu size={22} />
-          </button>
+              <Menu size={22} />
+            </button>
+          </div>
         </div>
       </header>
 

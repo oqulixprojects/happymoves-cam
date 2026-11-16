@@ -38,10 +38,12 @@ export class PoseTracker implements Tracker {
     if (!this.landmarker) return { timestamp: timestampMs, aspect };
     const result = this.landmarker.detectForVideo(video, timestampMs);
     const first = result.landmarks[0];
+    const firstWorld = result.worldLandmarks?.[0];
     return {
       timestamp: timestampMs,
       aspect,
       pose: first?.map((l) => ({ x: l.x, y: l.y, z: l.z, visibility: l.visibility })),
+      poseWorld: firstWorld?.map((l) => ({ x: l.x, y: l.y, z: l.z, visibility: l.visibility })),
     };
   }
 

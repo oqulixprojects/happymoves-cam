@@ -23,6 +23,7 @@ export interface TrackingFrame {
   /** Video width / height. Normalised x and y are not equal units, so angle maths must correct for it. */
   aspect: number;
   pose?: Landmark[];
+  poseWorld?: Landmark[];
   hands?: HandResult[];
 }
 

@@ -13,7 +13,7 @@ export function KinematicsPanel({ kinematics, tracking }: KinematicsPanelProps) 
       <div className="kinematics-card kinematics-card--standby">
         <div className="kinematics-standby-row">
           <Activity size={18} className="kinematics-standby-icon" />
-          <span>Real-time joint, finger, and toe kinematics active when camera is started.</span>
+          <span>Angles appear when camera starts.</span>
         </div>
       </div>
     );
@@ -36,10 +36,10 @@ export function KinematicsPanel({ kinematics, tracking }: KinematicsPanelProps) 
   return (
     <div className="kinematics-card" aria-label="Real-time body kinematics">
       <div className="kinematics-header">
-        <span className="kinematics-title">Real-Time Anatomical Kinematics</span>
+        <span className="kinematics-title">Kinematics</span>
         <span className="badge badge--available">
           <ShieldCheck size={13} />
-          <span>Full Body Rig Synced</span>
+          <span>Active</span>
         </span>
       </div>
 

@@ -71,6 +71,7 @@ export const lowerBodyCategories: CategoryDefinition[] = [
     priority: 'P2',
     activities: [
       'Full Body Avatar Tracking',
+      'Real 3D Human Avatar Tracking',
       'Seated Lateral Weight Shifting',
       'Seated Forward Reaching',
       'Supported Standing Weight Shifting',

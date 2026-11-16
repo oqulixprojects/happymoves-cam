@@ -11,10 +11,14 @@
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.1.0",
+    "@pixiv/three-vrm": "^3.5.5",
+    "@types/three": "^0.187.0",
+    "kalidokit": "^1.1.5",
     "lucide-react": "^1.55.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "react-router-dom": "^7.18.4"
+    "react-router-dom": "^7.18.4",
+    "three": "^0.187.0"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

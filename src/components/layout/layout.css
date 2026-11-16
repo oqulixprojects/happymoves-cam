@@ -20,9 +20,10 @@
 }
 
 .patient-header__inner {
-  max-width: 720px;
+  max-width: 1200px;
+  width: 100%;
   margin: 0 auto;
-  padding: 0.85rem 1.25rem;
+  padding: 0.85rem 1.5rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -247,7 +248,7 @@
   justify-content: center;
 }
 
-/* Sticky Patient Bottom Navigation Bar (Screens 1, 2, 3, 9, 10) */
+/* Sticky Patient Bottom Navigation Bar */
 .patient-bottom-nav {
   position: fixed;
   bottom: 0;
@@ -260,7 +261,8 @@
 }
 
 .patient-bottom-nav__inner {
-  max-width: 580px;
+  max-width: 640px;
+  width: 100%;
   margin: 0 auto;
   height: var(--bottom-nav-height);
   display: flex;

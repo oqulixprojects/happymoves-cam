@@ -2,8 +2,6 @@ import { useRef, useState, useEffect, useMemo } from 'react';
 import {
   Camera,
   VideoOff,
-  CheckCircle2,
-  Info,
   ArrowLeft,
   Compass,
   Sparkles,
@@ -172,7 +170,7 @@ export default function FullBodyAvatarModule() {
         <div className="module-intro">
           <h1 className="module-intro__title">Full Body Tracking</h1>
           <p className="module-intro__desc">
-            Step back 6–8 feet. MediaPipe tracks your full body pose in real time with high-precision tracking lines and joint coordinates.
+            Stand back 6–8 ft. Real-time body pose tracking.
           </p>
         </div>
       )}
@@ -338,14 +336,6 @@ export default function FullBodyAvatarModule() {
       {/* OVERVIEW CONTENT (Only rendered when not full-screen) */}
       {!isFullScreen && (
         <>
-          {/* Camera Access Info Hint */}
-          {!cameraActive && (
-            <div className="camera-info-hint">
-              <Info size={18} className="camera-info-hint__icon" />
-              <span>Camera access will be requested. Full screen mobile mode opens automatically when you start.</span>
-            </div>
-          )}
-
           {/* Start / Resume Action Bar */}
           <div className="avatar-action-bar">
             {cameraActive ? (
@@ -356,7 +346,7 @@ export default function FullBodyAvatarModule() {
                   onClick={() => setIsFullScreen(true)}
                 >
                   <Maximize2 size={18} />
-                  <span>Resume Full Screen View</span>
+                  <span>Resume Tracking</span>
                 </button>
                 <button
                   type="button"
@@ -376,7 +366,7 @@ export default function FullBodyAvatarModule() {
                 disabled={camera.status === 'starting'}
               >
                 <Camera size={18} />
-                <span>Start Full Screen Tracking</span>
+                <span>Start Tracking</span>
               </button>
             )}
           </div>
@@ -434,24 +424,6 @@ export default function FullBodyAvatarModule() {
 
           {/* Kinematics Telemetry Panel */}
           <KinematicsPanel kinematics={kinematics} tracking={tracking} />
-
-          {/* Patient Posture Tips Card */}
-          <div className="patient-tips-card">
-            <ul className="patient-tips-list">
-              <li className="patient-tips-item">
-                <CheckCircle2 size={18} className="patient-tips-icon" />
-                <span>Stand back 6–8 feet so your full body from head to toes is visible</span>
-              </li>
-              <li className="patient-tips-item">
-                <CheckCircle2 size={18} className="patient-tips-icon" />
-                <span>Full screen mobile view starts automatically with back button on top left</span>
-              </li>
-              <li className="patient-tips-item">
-                <CheckCircle2 size={18} className="patient-tips-icon" />
-                <span>Zero lag: Direct native MediaPipe skeleton tracking lines at 60 FPS</span>
-              </li>
-            </ul>
-          </div>
         </>
       )}
     </div>
