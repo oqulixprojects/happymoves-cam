@@ -18,6 +18,10 @@ const initialTelemetry: NeckTelemetry = {
   smoothness: 100,
   currentPosition: 0,
   movementAngle: 0,
+  extensionAngle: 0,
+  flexionAngle: 0,
+  catchAccuracy: 0,
+  verticalROM: 0,
 };
 
 const initialGameStats: GameStats = {
@@ -27,11 +31,9 @@ const initialGameStats: GameStats = {
   accuracy: 0,
 };
 
-// Safely load and validate game statistics.
 function loadGameStats(): GameStats {
   try {
     const saved = localStorage.getItem('neckGameStats');
-
     if (!saved) return { ...initialGameStats };
 
     const data: unknown = JSON.parse(saved);
@@ -65,22 +67,23 @@ function loadGameStats(): GameStats {
     if (!valid) return { ...initialGameStats };
 
     const starsCollected = stats.starsCollected as number;
-const totalAttempts = stats.totalAttempts as number;
+    const totalAttempts = stats.totalAttempts as number;
 
-const expectedAccuracy =
-  totalAttempts === 0
-    ? 0
-    : Math.round(
-        (starsCollected / totalAttempts) * 100,
-      );
+    const expectedAccuracy =
+      totalAttempts === 0
+        ? 0
+        : Math.round(
+            (starsCollected / totalAttempts) * 100,
+          );
+
     if (stats.accuracy !== expectedAccuracy) {
       return { ...initialGameStats };
     }
 
     return {
       score: stats.score as number,
-      starsCollected: stats.starsCollected as number,
-      totalAttempts: stats.totalAttempts as number,
+      starsCollected,
+      totalAttempts,
       accuracy: stats.accuracy as number,
     };
   } catch {
@@ -88,11 +91,9 @@ const expectedAccuracy =
   }
 }
 
-// Safely load and validate movement telemetry.
 function loadNeckTelemetry(): NeckTelemetry {
   try {
     const saved = localStorage.getItem('neckTelemetry');
-
     if (!saved) return { ...initialTelemetry };
 
     const data: unknown = JSON.parse(saved);
@@ -107,7 +108,7 @@ function loadNeckTelemetry(): NeckTelemetry {
 
     const stats = data as Record<string, unknown>;
 
-    const numericFields = [
+    const requiredFields = [
       'upwardMovements',
       'downwardMovements',
       'repetitions',
@@ -116,7 +117,7 @@ function loadNeckTelemetry(): NeckTelemetry {
       'movementAngle',
     ];
 
-    for (const field of numericFields) {
+    for (const field of requiredFields) {
       if (
         typeof stats[field] !== 'number' ||
         !Number.isFinite(stats[field])
@@ -125,37 +126,62 @@ function loadNeckTelemetry(): NeckTelemetry {
       }
     }
 
+    const optionalFields = [
+      'extensionAngle',
+      'flexionAngle',
+      'catchAccuracy',
+      'verticalROM',
+    ];
+
+    for (const field of optionalFields) {
+      if (
+        stats[field] !== undefined &&
+        (typeof stats[field] !== 'number' ||
+          !Number.isFinite(stats[field]))
+      ) {
+        return { ...initialTelemetry };
+      }
+    }
+
+    const upward = stats.upwardMovements as number;
+    const downward = stats.downwardMovements as number;
+    const repetitions = stats.repetitions as number;
+    const smoothness = stats.smoothness as number;
+
     const valid =
-      Number.isSafeInteger(stats.upwardMovements) &&
-      Number.isSafeInteger(stats.downwardMovements) &&
-      Number.isSafeInteger(stats.repetitions) &&
-      (stats.upwardMovements as number) >= 0 &&
-      (stats.downwardMovements as number) >= 0 &&
-      (stats.repetitions as number) >= 0 &&
-      (stats.repetitions as number) <=
-        Math.min(
-          stats.upwardMovements as number,
-          stats.downwardMovements as number,
-        ) &&
-      (stats.smoothness as number) >= 0 &&
-      (stats.smoothness as number) <= 100;
+      Number.isSafeInteger(upward) &&
+      Number.isSafeInteger(downward) &&
+      Number.isSafeInteger(repetitions) &&
+      upward >= 0 &&
+      downward >= 0 &&
+      repetitions >= 0 &&
+      repetitions <= Math.min(upward, downward) &&
+      smoothness >= 0 &&
+      smoothness <= 100;
 
     if (!valid) return { ...initialTelemetry };
 
     return {
-      upwardMovements: stats.upwardMovements as number,
-      downwardMovements: stats.downwardMovements as number,
-      repetitions: stats.repetitions as number,
-      smoothness: stats.smoothness as number,
+      upwardMovements: upward,
+      downwardMovements: downward,
+      repetitions,
+      smoothness,
       currentPosition: stats.currentPosition as number,
       movementAngle: stats.movementAngle as number,
+      extensionAngle:
+        (stats.extensionAngle as number | undefined) ?? 0,
+      flexionAngle:
+        (stats.flexionAngle as number | undefined) ?? 0,
+      catchAccuracy:
+        (stats.catchAccuracy as number | undefined) ?? 0,
+      verticalROM:
+        (stats.verticalROM as number | undefined) ?? 0,
     };
   } catch {
     return { ...initialTelemetry };
   }
 }
 
-// Safely save data to LocalStorage.
 function saveLocalData(key: string, value: unknown): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
@@ -179,7 +205,8 @@ export default function NeckVerticalModule() {
   const caughtStarThisRepRef = useRef(false);
 
   const [characterY, setCharacterY] = useState(50);
-  const [starY, setStarY] = useState(25);
+  const [starY, setStarY] = useState(22);
+  const [crystalY, setCrystalY] = useState(78);
 
   const [gameStats, setGameStats] =
     useState<GameStats>(loadGameStats);
@@ -191,7 +218,6 @@ export default function NeckVerticalModule() {
     'Start the camera to begin',
   );
 
-  // Save statistics whenever they change.
   useEffect(() => {
     saveLocalData('neckGameStats', gameStats);
   }, [gameStats]);
@@ -202,7 +228,6 @@ export default function NeckVerticalModule() {
 
   const camera = useCamera(videoRef);
 
-  // Reset statistics and save the reset values.
   const resetStatistics = () => {
     setGameStats({ ...initialGameStats });
     setTelemetry({ ...initialTelemetry });
@@ -211,7 +236,8 @@ export default function NeckVerticalModule() {
     saveLocalData('neckTelemetry', initialTelemetry);
 
     setCharacterY(50);
-    setStarY(25);
+    setStarY(22);
+    setCrystalY(78);
 
     hasMovedUpRef.current = false;
     caughtStarThisRepRef.current = false;
@@ -250,108 +276,124 @@ export default function NeckVerticalModule() {
 
     const now = Date.now();
 
-    if (now - lastUpdateRef.current >= 100) {
-      setCharacterY(position);
+    if (now - lastUpdateRef.current < 100) return;
 
-      const direction =
-        deltaY < -0.01
-          ? 'up'
-          : deltaY > 0.01
-            ? 'down'
-            : 'center';
+    setCharacterY(position);
 
-      const directionChanged =
-        direction !== 'center' &&
-        direction !== lastMovementDirectionRef.current;
+    const direction =
+      deltaY < -0.01
+        ? 'up'
+        : deltaY > 0.01
+          ? 'down'
+          : 'center';
 
-      let completedRepetition = false;
+    const directionChanged =
+      direction !== 'center' &&
+      direction !== lastMovementDirectionRef.current;
 
-      if (directionChanged && direction === 'up') {
-        hasMovedUpRef.current = true;
-        caughtStarThisRepRef.current = false;
-      }
+    let completedRepetition = false;
 
+    if (directionChanged && direction === 'up') {
+      hasMovedUpRef.current = true;
+      caughtStarThisRepRef.current = false;
+    }
+
+    if (
+      directionChanged &&
+      direction === 'down' &&
+      hasMovedUpRef.current
+    ) {
+      completedRepetition = true;
+      hasMovedUpRef.current = false;
+    }
+
+    let caughtCollectible = false;
+
+    if (now - lastCatchRef.current >= 700) {
+      // Stars can only be caught in the upper lane while moving up.
       if (
-        directionChanged &&
-        direction === 'down' &&
-        hasMovedUpRef.current
+        direction === 'up' &&
+        Math.abs(position - starY) < 8
       ) {
-        completedRepetition = true;
-        hasMovedUpRef.current = false;
-      }
-
-      // Check for a star catch.
-      const caughtStar =
-        Math.abs(position - starY) < 8 &&
-        now - lastCatchRef.current >= 1000;
-
-      if (caughtStar) {
+        caughtCollectible = true;
         caughtStarThisRepRef.current = true;
 
-        // Award points immediately.
         setGameStats((previous) =>
           awardStarPoints(previous),
         );
 
-        setStarY(Math.floor(Math.random() * 71) + 15);
+        setStarY(Math.floor(Math.random() * 16) + 15);
 
         setTrackingMessage('⭐ Star caught! +50 points');
+      }
+
+      // Crystals can only be collected in the lower lane while moving down.
+      else if (
+        direction === 'down' &&
+        Math.abs(position - crystalY) < 8
+      ) {
+        caughtCollectible = true;
+
+        setCrystalY(Math.floor(Math.random() * 16) + 70);
+
+        setTrackingMessage('💎 Crystal collected!');
+      }
+
+      if (caughtCollectible) {
         lastCatchRef.current = now;
       }
-
-      // Update movement telemetry.
-      setTelemetry((previous) => {
-        const updated = updateNeckTelemetry(
-          previous,
-          previousDeltaYRef.current,
-          deltaY,
-          confidence,
-        );
-
-        return {
-          ...updated,
-          upwardMovements:
-            previous.upwardMovements +
-            (directionChanged && direction === 'up' ? 1 : 0),
-          downwardMovements:
-            previous.downwardMovements +
-            (directionChanged && direction === 'down' ? 1 : 0),
-          repetitions:
-            previous.repetitions +
-            (completedRepetition ? 1 : 0),
-        };
-      });
-
-      // Update accuracy after a completed repetition.
-      if (completedRepetition) {
-        setGameStats((previous) =>
-          updateGameStats(
-            previous,
-            caughtStarThisRepRef.current,
-          ),
-        );
-
-        caughtStarThisRepRef.current = false;
-      }
-
-      if (directionChanged) {
-        lastMovementDirectionRef.current = direction;
-      }
-
-      previousDeltaYRef.current = deltaY;
-
-      if (!caughtStar) {
-        setTrackingMessage(
-          deltaY < -0.01
-            ? 'Head up!'
-            : deltaY > 0.01
-              ? 'Chin down!'
-              : 'Keep your head centered',
-        );
-      }
-
-      lastUpdateRef.current = now;
     }
+
+    setTelemetry((previous) => {
+      const updated = updateNeckTelemetry(
+        previous,
+        previousDeltaYRef.current,
+        deltaY,
+        confidence,
+      );
+
+      return {
+        ...updated,
+        upwardMovements:
+          previous.upwardMovements +
+          (directionChanged && direction === 'up' ? 1 : 0),
+        downwardMovements:
+          previous.downwardMovements +
+          (directionChanged && direction === 'down' ? 1 : 0),
+        repetitions:
+          previous.repetitions +
+          (completedRepetition ? 1 : 0),
+      };
+    });
+
+    if (completedRepetition) {
+      setGameStats((previous) =>
+        updateGameStats(
+          previous,
+          caughtStarThisRepRef.current,
+        ),
+      );
+
+      caughtStarThisRepRef.current = false;
+    }
+
+    if (directionChanged) {
+      lastMovementDirectionRef.current = direction;
+    }
+
+    previousDeltaYRef.current = deltaY;
+
+    if (!caughtCollectible) {
+      setTrackingMessage(
+        direction === 'up'
+          ? 'Head up!'
+          : direction === 'down'
+            ? 'Chin down!'
+            : 'Keep your head centered',
+      );
+    }
+
+    lastUpdateRef.current = now;
   };
 
   const tracker = useTracker({
@@ -365,8 +407,11 @@ export default function NeckVerticalModule() {
   return (
     <div className="neck-vertical-module">
       <header className="neck-vertical-header">
-        <h2>Neck Vertical: Star Catcher</h2>
-        <p>Move your head up and down to catch the stars.</p>
+        <h2>Neck Vertical: Sky Star Catcher</h2>
+        <p>
+          Cervical Flexion & Extension – Move the character
+          to collect stars and crystals.
+        </p>
       </header>
 
       <div className="neck-vertical-layout">
@@ -418,6 +463,7 @@ export default function NeckVerticalModule() {
             </div>
 
             <div
+              className="neck-star"
               style={{
                 position: 'absolute',
                 top: `${starY}%`,
@@ -428,10 +474,25 @@ export default function NeckVerticalModule() {
             >
               ⭐
             </div>
+
+            <div
+              className="neck-crystal"
+              style={{
+                position: 'absolute',
+                top: `${crystalY}%`,
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                fontSize: 30,
+              }}
+            >
+              💎
+            </div>
           </div>
 
           <p>{trackingMessage}</p>
           <h3>Score: {gameStats.score}</h3>
+          <p>⭐ Star: +50 points</p>
+          <p>💎 Collect crystals in the lower lane</p>
         </section>
 
         <section className="neck-telemetry-panel">
@@ -473,12 +534,12 @@ export default function NeckVerticalModule() {
           </div>
 
           <div className="neck-stat">
-            <strong>Successful Attempts</strong>
+            <strong>Successful Star Attempts</strong>
             <p>{gameStats.starsCollected}</p>
           </div>
 
           <div className="neck-stat">
-            <strong>Total Attempts</strong>
+            <strong>Total Star Attempts</strong>
             <p>{gameStats.totalAttempts}</p>
           </div>
 

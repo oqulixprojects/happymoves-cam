@@ -21,6 +21,13 @@ export interface Star {
   collected: boolean;
 }
 
+export interface Crystal {
+  id: number;
+  x: number;
+  y: number;
+  collected: boolean;
+}
+
 export interface NeckTelemetry {
   upwardMovements: number;
   downwardMovements: number;
@@ -28,4 +35,8 @@ export interface NeckTelemetry {
   smoothness: number;
   currentPosition: number;
   movementAngle: number;
+  extensionAngle: number;
+  flexionAngle: number;
+  catchAccuracy: number;
+  verticalROM: number;
 }

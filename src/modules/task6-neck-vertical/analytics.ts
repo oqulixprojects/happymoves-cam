@@ -11,7 +11,7 @@ export function calculateAccuracy(
   return Math.round((starsCollected / totalAttempts) * 100);
 }
 
-// Award 50 points immediately when a star is caught
+// Award 50 points when a collectible is caught
 export function awardStarPoints(
   current: GameStats,
 ): GameStats {
@@ -48,6 +48,7 @@ export function updateNeckTelemetry(
   previousDeltaY: number,
   currentDeltaY: number,
   confidence: number,
+  pitchAngle: number = current.movementAngle,
 ): NeckTelemetry {
   const change = currentDeltaY - previousDeltaY;
 
@@ -75,12 +76,26 @@ export function updateNeckTelemetry(
     ),
   );
 
+  const extensionAngle = Math.max(
+    current.extensionAngle,
+    pitchAngle > 0 ? pitchAngle : 0,
+  );
+
+  const flexionAngle = Math.max(
+    current.flexionAngle,
+    pitchAngle < 0 ? Math.abs(pitchAngle) : 0,
+  );
+
   return {
     upwardMovements,
     downwardMovements,
     repetitions,
     smoothness,
     currentPosition: Math.round(currentDeltaY * 1000) / 10,
-    movementAngle: 0,
+    movementAngle: pitchAngle,
+    extensionAngle,
+    flexionAngle,
+    catchAccuracy: current.catchAccuracy,
+    verticalROM: extensionAngle + flexionAngle,
   };
 }
