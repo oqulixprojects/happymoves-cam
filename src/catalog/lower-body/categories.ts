@@ -80,6 +80,7 @@ export const lowerBodyCategories: CategoryDefinition[] = [
       'Supported Standing Reaching',
       'Multidirectional Target Reaching',
       'Staggered-Stance Weight Transfer',
+      'Cervical Flexion Extension',
     ],
     initialFocus: ['Full Body Avatar Tracking', 'Supported Standing Weight Shifting', 'Multidirectional Reaching'],
   },

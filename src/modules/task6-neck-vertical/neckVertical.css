@@ -1,0 +1,211 @@
+
+.neck-vertical-module {
+  min-height: 100vh;
+  padding: 24px;
+  background: #eaf3ff;
+  color: #172554;
+  font-family: Arial, sans-serif;
+  box-sizing: border-box;
+}
+
+.neck-vertical-header {
+  margin-bottom: 24px;
+}
+
+.neck-vertical-header h2 {
+  margin: 0 0 8px;
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.neck-vertical-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: stretch;
+}
+
+.neck-camera-panel,
+.neck-game-panel,
+.neck-telemetry-panel {
+  min-width: 0;
+  padding: 20px;
+  border-radius: 16px;
+  background: white;
+  box-shadow: 0 4px 16px rgba(23, 37, 84, 0.08);
+  box-sizing: border-box;
+}
+
+.neck-camera-panel video,
+.neck-camera-panel canvas {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  border-radius: 12px;
+}
+
+.neck-camera-panel video {
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: #0f172a;
+}
+
+.neck-game-panel {
+  min-height: 480px;
+  position: relative;
+  overflow: hidden;
+  background: #101b3d;
+  color: white;
+}
+
+.neck-game-lane {
+  position: relative;
+  height: 400px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #172554, #0f172a);
+}
+
+.neck-character {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 42px;
+  transition: top 0.1s linear;
+  z-index: 2;
+}
+
+.neck-telemetry-panel h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.neck-stat {
+  margin: 16px 0;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f1f5f9;
+  transition: background 0.2s ease;
+}
+
+.neck-stat:hover {
+  background: #e8effa;
+}
+
+.camera-controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.camera-controls button {
+  flex: 1;
+  min-width: 100px;
+  padding: 11px 18px;
+  border: none;
+  border-radius: 8px;
+  background: #2563eb;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.camera-controls button:hover:not(:disabled) {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.camera-controls button:last-child {
+  background: #dc2626;
+}
+
+.camera-controls button:last-child:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.camera-controls button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.reset-statistics-button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 12px;
+  border: none;
+  border-radius: 8px;
+  background: #dc2626;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.reset-statistics-button:hover {
+  background: #b91c1c;
+}
+
+@media (max-width: 1100px) {
+  .neck-vertical-layout {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .neck-game-panel {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+}
+
+@media (max-width: 700px) {
+  .neck-vertical-module {
+    padding: 12px;
+  }
+
+  .neck-vertical-header h2 {
+    font-size: 21px;
+  }
+
+  .neck-vertical-layout {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .neck-camera-panel,
+  .neck-game-panel,
+  .neck-telemetry-panel {
+    width: 100%;
+    padding: 14px;
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .neck-game-panel {
+    min-height: 420px;
+  }
+
+  .neck-game-lane {
+    height: 350px;
+  }
+
+  .camera-controls button {
+    flex: 1;
+  }
+}
+
+@media (max-width: 400px) {
+  .neck-vertical-header h2 {
+    font-size: 19px;
+  }
+
+  .neck-game-lane {
+    height: 300px;
+  }
+
+  .neck-character {
+    font-size: 34px;
+  }
+}
