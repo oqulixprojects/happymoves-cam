@@ -1,0 +1,458 @@
+
+.soccer-container {
+  padding: 24px;
+  color: #e2e8f0;
+  background: #0f172a;
+  min-height: 100%;
+  border-radius: 16px;
+}
+
+.soccer-header,
+.soccer-header-actions,
+.soccer-game-layout,
+.soccer-scoreboard,
+.camera-section-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.soccer-header {
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.soccer-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 23px;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.soccer-header p {
+  margin-top: 8px;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.soccer-header-actions select,
+.soccer-reset {
+  padding: 10px 14px;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  background: #1e293b;
+  color: #f8fafc;
+}
+
+.soccer-reset {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.soccer-game-layout {
+  align-items: flex-start;
+}
+
+.soccer-game-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.soccer-scoreboard {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin-bottom: 16px;
+  padding: 18px;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 12px;
+}
+
+.soccer-scoreboard div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.soccer-scoreboard span,
+.metric-label {
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.soccer-scoreboard strong {
+  font-size: 26px;
+  color: #38bdf8;
+}
+
+.soccer-pitch {
+  position: relative;
+  height: 380px;
+  overflow: hidden;
+  border: 4px solid #e2e8f0;
+  border-radius: 12px;
+  background: repeating-linear-gradient(
+    90deg,
+    #15803d 0,
+    #15803d 80px,
+    #166534 80px,
+    #166534 160px
+  );
+}
+
+.pitch-center-line {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  border-left: 2px solid #ffffff80;
+}
+
+.pitch-center-circle {
+  position: absolute;
+  width: 110px;
+  height: 110px;
+  border: 2px solid #ffffff80;
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.soccer-target {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 55px;
+  height: 55px;
+  color: white;
+  border: 3px solid white;
+  border-radius: 50%;
+  background: #dc2626;
+  box-shadow: 0 0 15px #0008;
+  z-index: 2;
+}
+
+.target-top-left {
+  top: 18px;
+  left: 18px;
+}
+
+.target-top-right {
+  top: 18px;
+  right: 18px;
+}
+
+.target-bottom-left {
+  bottom: 18px;
+  left: 18px;
+}
+
+.soccer-goal {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  padding: 18px 10px;
+  color: white;
+  font-weight: 800;
+  background: #0f172a;
+  border: 3px solid white;
+}
+
+.soccer-ball {
+  position: absolute;
+  left: 50%;
+  bottom: 25px;
+  font-size: 35px;
+  transform: translateX(-50%);
+  z-index: 5;
+}
+
+.soccer-ball.ball-kicking {
+  animation-duration: 1s;
+  animation-timing-function: ease-out;
+  animation-fill-mode: forwards;
+}
+
+.kick-top-left {
+  animation-name: kickTopLeft;
+}
+
+.kick-top-right {
+  animation-name: kickTopRight;
+}
+
+.kick-bottom-left {
+  animation-name: kickBottomLeft;
+}
+
+@keyframes kickTopLeft {
+  to {
+    left: 12%;
+    top: 12%;
+    bottom: auto;
+    transform: scale(0.7);
+  }
+}
+
+@keyframes kickTopRight {
+  to {
+    left: 88%;
+    top: 12%;
+    bottom: auto;
+    transform: scale(0.7);
+  }
+}
+
+@keyframes kickBottomLeft {
+  to {
+    left: 12%;
+    bottom: 12%;
+    transform: scale(0.7);
+  }
+}
+
+.soccer-result {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  padding: 18px 24px;
+  border-radius: 12px;
+  text-align: center;
+  font-weight: 900;
+  background: #0f172ae8;
+  box-shadow: 0 8px 30px #0008;
+}
+
+.goal-result {
+  color: #4ade80;
+  font-size: 25px;
+}
+
+.miss-result {
+  color: #fbbf24;
+  font-size: 22px;
+}
+
+.finished-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: #facc15;
+}
+
+.finished-result strong {
+  font-size: 25px;
+}
+
+.soccer-instruction {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0;
+  padding: 14px;
+  border-radius: 10px;
+  background: #1e293b;
+  color: #7dd3fc;
+}
+
+.soccer-camera-section {
+  margin-top: 20px;
+}
+
+.camera-section-title {
+  justify-content: flex-start;
+  margin-bottom: 12px;
+}
+
+.camera-section-title h3 {
+  font-weight: 700;
+}
+
+.tracking-leg {
+  margin-left: auto;
+  color: #4ade80;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.soccer-camera {
+  position: relative;
+  overflow: hidden;
+  min-height: 280px;
+  background: #020617;
+  border-radius: 12px;
+}
+
+.soccer-video {
+  display: block;
+  width: 100%;
+  height: 320px;
+  object-fit: contain;
+  transform: scaleX(-1);
+}
+
+.soccer-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.soccer-analytics {
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.soccer-metric-card,
+.soccer-history-card {
+  padding: 18px;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 12px;
+}
+
+.soccer-metric-card strong {
+  display: block;
+  margin: 10px 0;
+  font-size: 30px;
+  color: #38bdf8;
+}
+
+.soccer-metric-card p {
+  margin-top: 10px;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.angle-progress {
+  height: 9px;
+  overflow: hidden;
+  border-radius: 20px;
+  background: #334155;
+}
+
+.angle-progress div {
+  height: 100%;
+  border-radius: inherit;
+  background: #22c55e;
+  transition: width 0.2s ease;
+}
+
+.angle-scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  color: #94a3b8;
+  font-size: 10px;
+}
+
+.soccer-history-card h3 {
+  margin-bottom: 14px;
+  font-weight: 700;
+}
+
+.empty-kick-history {
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.kick-history-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-top: 1px solid #334155;
+  font-size: 13px;
+}
+
+.kick-success {
+  color: #4ade80;
+}
+
+.kick-miss {
+  color: #fbbf24;
+}
+
+@media (max-width: 900px) {
+  .soccer-game-layout {
+    flex-direction: column;
+  }
+
+  .soccer-analytics {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .soccer-game-main {
+    width: 100%;
+  }
+}
+
+@media (max-width: 550px) {
+  .soccer-container {
+    padding: 12px;
+  }
+
+  .soccer-analytics {
+    grid-template-columns: 1fr;
+  }
+
+  .soccer-pitch {
+    height: 280px;
+  }
+
+  .soccer-header-actions {
+    width: 100%;
+  }
+}
+/* Add this to the END of kneeSoccer.css */
+
+.soccer-confetti {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.soccer-confetti i {
+  position: absolute;
+  top: 25%;
+  width: 8px;
+  height: 14px;
+  border-radius: 2px;
+  opacity: 0;
+  animation: soccer-confetti-fall 1.8s ease-out forwards;
+}
+
+@keyframes soccer-confetti-fall {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--drift), 260px) rotate(var(--rot));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .soccer-confetti {
+    display: none;
+  }
+}
