@@ -8,6 +8,7 @@ export default defineModule({
   summary:
     'A camera-based knee extension game with soccer kicks, target scoring, and rehabilitation analytics.',
   categoryId: 'knee-mobility-and-control',
+  activityId: 'seated-knee-extension',
   status: 'demo',
   requiresCamera: true,
   tracking: ['pose'],

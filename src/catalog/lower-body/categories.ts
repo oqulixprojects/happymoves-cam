@@ -72,6 +72,8 @@ export const lowerBodyCategories: CategoryDefinition[] = [
     activities: [
       'Full Body Avatar Tracking',
       'Real 3D Human Avatar Tracking',
+      'Cervical Lateral Rotation',
+      'Cervical Flexion Extension',
       'Seated Lateral Weight Shifting',
       'Seated Forward Reaching',
       'Supported Standing Weight Shifting',
