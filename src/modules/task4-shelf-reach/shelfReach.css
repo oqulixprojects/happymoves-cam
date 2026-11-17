@@ -1,0 +1,626 @@
+/* ========================================================================== */
+/* Task 04: 2D Shelf Item Organizer (Shoulder Reaching) - Styling             */
+/* ========================================================================== */
+
+.shelf-reach-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0.5rem;
+  box-sizing: border-box;
+}
+
+/* Header bar */
+.shelf-reach-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.02);
+}
+
+.shelf-reach-title-group h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.shelf-reach-title-group p {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin: 0.25rem 0 0 0;
+}
+
+.shelf-reach-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.shelf-reach-arm-selector {
+  display: flex;
+  background: #f1f5f9;
+  border-radius: 0.75rem;
+  padding: 0.25rem;
+}
+
+.shelf-reach-arm-btn {
+  border: none;
+  background: transparent;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  color: #64748b;
+  transition: all 0.2s ease;
+}
+
+.shelf-reach-arm-btn.active {
+  background: #ffffff;
+  color: #0284c7;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.shelf-reach-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #334155;
+  transition: all 0.15s ease;
+}
+
+.shelf-reach-action-btn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.shelf-reach-action-btn.primary {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+}
+
+.shelf-reach-action-btn.primary:hover {
+  background: #1d4ed8;
+}
+
+/* Two-column layout */
+.shelf-reach-layout {
+  display: grid;
+  grid-template-columns: 1.25fr 0.95fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 980px) {
+  .shelf-reach-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Left: Viewport & Canvas Overlay */
+.shelf-reach-viewport {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: #0f172a;
+  border-radius: 1rem;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  border: 2px solid #1e293b;
+}
+
+.shelf-reach-video,
+.shelf-reach-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1); /* Mirrored view for natural therapy motion */
+}
+
+.shelf-reach-canvas {
+  pointer-events: none;
+}
+
+/* Overlays inside viewport */
+.shelf-reach-overlay-badge {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  color: #f8fafc;
+  padding: 0.45rem 0.85rem;
+  border-radius: 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  z-index: 10;
+}
+
+.shelf-reach-score-badge {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  color: #38bdf8;
+  padding: 0.45rem 0.85rem;
+  border-radius: 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  z-index: 10;
+}
+
+/* Live Coaching Feedback Banner */
+.shelf-reach-feedback-banner {
+  position: absolute;
+  bottom: 1rem;
+  left: 1rem;
+  right: 1rem;
+  background: rgba(15, 23, 42, 0.92);
+  backdrop-filter: blur(8px);
+  color: #f8fafc;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+}
+
+/* Right: Telemetry Dashboard */
+.shelf-reach-telemetry {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Key Stats Grid */
+.shelf-reach-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+.shelf-reach-stat-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.85rem;
+  padding: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.shelf-reach-stat-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.shelf-reach-stat-value {
+  font-size: 1.55rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.2;
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+
+.shelf-reach-stat-unit {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.shelf-reach-stat-sub {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #10b981;
+}
+
+.shelf-reach-stat-sub.neutral {
+  color: #64748b;
+}
+
+/* Live Vertical Reach Height Gauge Card */
+.shelf-reach-gauge-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.85rem;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.shelf-reach-gauge-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.shelf-reach-gauge-header h3 {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.shelf-reach-gauge-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.2rem 0.55rem;
+  border-radius: 0.4rem;
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.shelf-reach-gauge-track {
+  width: 100%;
+  height: 12px;
+  background: #f1f5f9;
+  border-radius: 9999px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+}
+
+.shelf-reach-gauge-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #38bdf8 0%, #10b981 100%);
+  border-radius: 9999px;
+  transition: width 0.1s ease-out;
+}
+
+.shelf-reach-gauge-markers {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* 3-Tier Shelf Level Status Card */
+.shelf-reach-tiers-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.85rem;
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.shelf-reach-tiers-card h3 {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.shelf-reach-tiers-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.shelf-reach-tier-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  padding: 0.55rem 0.4rem;
+  border-radius: 0.5rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #64748b;
+  transition: all 0.2s ease;
+}
+
+.shelf-reach-tier-item.active {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #1d4ed8;
+  box-shadow: 0 0 0 1px #3b82f6;
+}
+
+.shelf-reach-tier-name {
+  font-weight: 700;
+}
+
+.shelf-reach-tier-sub {
+  font-size: 0.65rem;
+  color: #94a3b8;
+}
+
+.sr-layout {
+  --sr-ink: #17302f;
+  --sr-muted: #52706d;
+  --sr-surface: #ffffff;
+  --sr-ground: #e9f0ee;
+  --sr-line: #cddbd8;
+  --sr-accent: #1f8a5b;
+  --sr-accent-ink: #ffffff;
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 20px;
+  padding: 20px;
+  color: var(--sr-ink);
+  background: var(--sr-ground);
+  min-height: 100%;
+  box-sizing: border-box;
+}
+
+.sr-stage {
+  min-width: 0;
+}
+
+.sr-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: #0d1f1e;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* Video + tracker overlay are mirrored (selfie view); the game canvas is not,
+   because its coordinates are already mirrored in code so text stays readable. */
+.sr-video,
+.sr-tracker,
+.sr-game {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.sr-video {
+  object-fit: fill;
+  transform: scaleX(-1);
+}
+
+.sr-tracker {
+  transform: scaleX(-1);
+  pointer-events: none;
+}
+
+.sr-game {
+  pointer-events: none;
+}
+
+.sr-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+  color: #ffffff;
+  background: rgba(8, 28, 26, 0.7);
+}
+
+/* Session Reps Log */
+.shelf-reach-log-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.85rem;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.shelf-reach-log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.shelf-reach-log-header h3 {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.shelf-reach-log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  max-height: 190px;
+  overflow-y: auto;
+}
+
+.shelf-reach-log-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-left: 3px solid #10b981;
+  font-size: 0.76rem;
+}
+
+.shelf-reach-log-item-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.shelf-reach-log-item-title {
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.shelf-reach-log-item-meta {
+  font-size: 0.7rem;
+  color: #64748b;
+}
+
+/* Stored Results Footer Card */
+.shelf-reach-stored-card {
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: #475569;
+}
+
+.sr-done h2 {
+  margin: 0;
+  font-size: 1.6rem;
+}
+
+.sr-done p {
+  margin: 0;
+  max-width: 34ch;
+  line-height: 1.5;
+}
+
+.sr-hint {
+  margin: 10px 2px 0;
+  color: var(--sr-muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.sr-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-self: start;
+  padding: 18px;
+  background: var(--sr-surface);
+  border: 1px solid var(--sr-line);
+  border-radius: 12px;
+}
+
+.sr-panel-title {
+  margin: 0 0 2px;
+  font-size: 1.05rem;
+}
+
+.sr-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--sr-line);
+}
+
+.sr-stat-label {
+  font-size: 0.85rem;
+  color: var(--sr-muted);
+}
+
+.sr-stat-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.sr-stat-main .sr-stat-value {
+  font-size: 2.4rem;
+  color: var(--sr-accent);
+}
+
+.sr-stat-sub {
+  font-size: 0.8rem;
+  color: var(--sr-muted);
+}
+
+.sr-bar {
+  height: 8px;
+  margin-top: 6px;
+  background: var(--sr-line);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.sr-bar-fill {
+  height: 100%;
+  background: var(--sr-accent);
+  transition: width 0.25s ease;
+}
+
+.sr-button {
+  padding: 10px 18px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--sr-accent-ink);
+  background: var(--sr-accent);
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.sr-button:focus-visible {
+  outline: 3px solid #0b5c3b;
+  outline-offset: 2px;
+}
+
+.sr-button-quiet {
+  color: var(--sr-ink);
+  background: transparent;
+  border: 1px solid var(--sr-line);
+}
+
+@media (max-width: 860px) {
+  .sr-layout {
+    grid-template-columns: 1fr;
+  }
+}
