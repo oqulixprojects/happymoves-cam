@@ -1,0 +1,158 @@
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600&display=swap');
+
+.slalom-layout {
+  --ice-deep: #0b2b45;
+  --ice-mid: #1d5f8a;
+  --snow: #f4fbff;
+  --aqua: #5fd3f3;
+  --gold: #ffc83d;
+  --coral: #ff7a59;
+  --panel: #10364f;
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 16px;
+  padding: 16px;
+  min-height: 100%;
+  font-family: 'Fredoka', 'Baloo 2', system-ui, sans-serif;
+  color: var(--snow);
+  background: var(--ice-deep);
+  box-sizing: border-box;
+}
+
+.slalom-stage {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  background: linear-gradient(180deg, #bfeaff 0%, #e9f8ff 100%);
+  border-radius: 24px;
+  overflow: hidden;
+}
+
+.slalom-game {
+  width: 100%;
+  max-width: 560px;
+  height: auto;
+  aspect-ratio: 560 / 720;
+  display: block;
+}
+
+.slalom-cam {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  width: 168px;
+  aspect-ratio: 4 / 3;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 3px solid var(--snow);
+  background: #000;
+}
+
+.slalom-cam-inner {
+  position: absolute;
+  inset: 0;
+  transform: scaleX(-1);
+}
+
+.slalom-cam video,
+.slalom-cam canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.slalom-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+  background: rgba(11, 43, 69, 0.78);
+}
+
+.slalom-overlay h2 {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 600;
+}
+
+.slalom-overlay p {
+  margin: 0;
+  max-width: 34ch;
+  line-height: 1.45;
+}
+
+.slalom-btn {
+  font: inherit;
+  font-weight: 600;
+  font-size: 1.15rem;
+  padding: 12px 32px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--ice-deep);
+  background: var(--gold);
+  cursor: pointer;
+  box-shadow: 0 4px 0 #c99200;
+}
+
+.slalom-btn:hover { background: #ffd566; }
+.slalom-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #c99200; }
+.slalom-btn:focus-visible { outline: 3px solid var(--snow); outline-offset: 3px; }
+
+.slalom-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.slalom-panel h3 {
+  margin: 0 0 4px;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.slalom-metric {
+  background: var(--panel);
+  border-radius: 16px;
+  padding: 14px 16px;
+}
+
+.slalom-metric-label { font-size: 0.9rem; color: var(--aqua); }
+.slalom-metric-value { font-size: 2rem; font-weight: 600; line-height: 1.15; }
+
+.slalom-bar {
+  margin-top: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+  overflow: hidden;
+}
+
+.slalom-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--aqua);
+  transition: width 0.15s linear;
+}
+
+.slalom-status { font-size: 0.85rem; opacity: 0.75; }
+
+@media (max-width: 860px) {
+  .slalom-layout { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slalom-bar > span { transition: none; }
+}
+.slalom-layout h2,
+.slalom-layout h3 {
+  color: #f4fbff;
+}
