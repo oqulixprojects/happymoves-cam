@@ -1,7 +1,7 @@
 import type { Landmark } from './types';
 
 /** Normalized hip-to-ankle offset needed to count as a lean (from the task spec). */
-export const SHIFT_THRESHOLD = 0.02;
+export const SHIFT_THRESHOLD = 0.06;
 
 /**
  * The camera preview is shown mirrored (like a mirror). In the raw camera image
@@ -45,13 +45,13 @@ export interface ShiftResult {
 }
 
 /** ΔX = Hip_mid.x − Ankle_mid.x, using landmarks 23/24 (hips) and 27/28 (ankles). */
-export function computeShift(lm: Landmark[]): ShiftResult | null {
+export function computeShift(lm: Landmark[], mirrored: boolean = MIRRORED): ShiftResult | null {
   const lh = lm[23], rh = lm[24], la = lm[27], ra = lm[28];
   if (!lh || !rh || !la || !ra) return null;
   const hip = mid(lh, rh);
   const ankle = mid(la, ra);
   const raw = hip.x - ankle.x;
-  const shift = MIRRORED ? -raw : raw;
+  const shift = mirrored ? -raw : raw;
 
   let cmPerUnit = FALLBACK_CM_PER_UNIT;
   const ls = lm[11], rs = lm[12];
@@ -69,9 +69,10 @@ export function shiftToLane(shift: number): 0 | 1 | 2 {
   return 1;
 }
 
-/** Stability 0–100 from how jittery the recent shift values are (lower = steadier). */
+/** Stability 0–100 from how jittery the recent shift values are (lower std = steadier). */
 export function stabilityScore(history: number[]): number {
   if (history.length < 5) return 100;
+  // Remove slow, intended motion by measuring frame-to-frame change instead of spread.
   let diffSum = 0;
   for (let i = 1; i < history.length; i++) diffSum += Math.abs(history[i] - history[i - 1]);
   const avgStep = diffSum / (history.length - 1);

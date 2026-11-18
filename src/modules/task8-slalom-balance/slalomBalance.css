@@ -53,7 +53,7 @@
 .slalom-cam-inner {
   position: absolute;
   inset: 0;
-  transform: scaleX(-1);
+  transform: scaleX(-1); /* mirror like a real mirror */
 }
 
 .slalom-cam video,
@@ -152,7 +152,21 @@
 @media (prefers-reduced-motion: reduce) {
   .slalom-bar > span { transition: none; }
 }
+
 .slalom-layout h2,
 .slalom-layout h3 {
   color: #f4fbff;
 }
+
+.slalom-btn-small {
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 8px 18px;
+  color: var(--snow);
+  background: transparent;
+  border: 2px solid var(--aqua);
+  box-shadow: none;
+}
+
+.slalom-btn-small:hover { background: rgba(95, 211, 243, 0.2); }
+.slalom-btn-small:active { transform: none; box-shadow: none; }

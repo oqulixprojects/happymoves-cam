@@ -19,10 +19,11 @@ export interface SessionResult extends Telemetry {
   timestamp: string;
   maxLeftCm: number;
   maxRightCm: number;
+  gemsCollected: number;
 }
 
 export interface Item {
-  kind: 'fish' | 'ice';
+  kind: 'fish' | 'ice' | 'gem';
   lane: 0 | 1 | 2;
   y: number;
   hit: boolean;
@@ -36,4 +37,12 @@ export interface Particle {
   life: number;
   color: string;
   size: number;
+}
+
+export interface Snowflake {
+  x: number;
+  y: number;
+  r: number;
+  speed: number;
+  drift: number;
 }
