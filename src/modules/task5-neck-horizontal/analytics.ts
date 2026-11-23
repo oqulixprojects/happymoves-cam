@@ -9,6 +9,7 @@ import type {
   StoredNeckData,
   NeckParticle,
   FloatingText,
+  CloudItem,
 } from './types';
 
 export const TARGET_COINS_GOAL = 15;
@@ -44,7 +45,6 @@ export function calculateHeadYawRatio(
   // Patient's left ear (7) is on camera right; patient's right ear (8) is on camera left.
   // When patient turns their head to their LEFT, nose shifts towards left ear (larger x).
   // When patient turns their head to their RIGHT, nose shifts towards right ear (smaller x).
-  // Relative position along ear span:
   const relativeNose = (nose.x - earMinX) / earSpan;
   const yawRatio = Math.max(0.0, Math.min(1.0, relativeNose));
 
@@ -59,7 +59,6 @@ export function calculateHeadYawRatio(
   }
 
   // Estimated cervical rotation in degrees (0° to ~70°)
-  // Normal neck rotation is up to ~65-70°
   const angleDegrees = Math.min(75, Math.round((Math.abs(deviation) / 0.35) * 70));
 
   return {
@@ -71,16 +70,16 @@ export function calculateHeadYawRatio(
 
 /**
  * Section 4 Horizontal Object Coordinate Mapping:
- * X_object = Clamp(0.1, 0.9, 0.5 + (R_yaw - 0.5) * sensitivityMultiplier)
+ * X_object = Clamp(0.08, 0.92, 0.5 + (R_yaw - 0.5) * sensitivityMultiplier)
  */
 export function mapYawToHorizontalPosition(
   yawRatio: number,
   sensitivity: SteeringSensitivity = 'normal'
 ): number {
-  const multiplier = sensitivity === 'high' ? 2.3 : sensitivity === 'low' ? 1.4 : 1.8;
+  const multiplier = sensitivity === 'high' ? 2.4 : sensitivity === 'low' ? 1.5 : 1.9;
   const deviation = yawRatio - 0.5;
   const mappedX = 0.5 + deviation * multiplier;
-  return Math.max(0.10, Math.min(0.90, mappedX));
+  return Math.max(0.08, Math.min(0.92, mappedX));
 }
 
 /**
@@ -95,14 +94,14 @@ export function calculateRotationSymmetry(leftPeak: number, rightPeak: number): 
 
 let nextCoinId = 1;
 export function createTargetCoin(side: 'left' | 'right'): TargetCoin {
-  // Left coin at x = 0.22, Right coin at x = 0.78
-  const x = side === 'left' ? 0.22 : 0.78;
+  // Left coin at x = 0.20, Right coin at x = 0.80
+  const x = side === 'left' ? 0.20 : 0.80;
   return {
     id: `coin-${nextCoinId++}`,
     side,
     x,
-    y: 0.72,
-    radius: 0.055,
+    y: 0.70,
+    radius: 0.052,
     collected: false,
     value: 50,
   };
@@ -130,6 +129,31 @@ function getAudioContext(): AudioContext | null {
   return sharedAudioCtx;
 }
 
+/** Countdown beep (low for 3, 2, 1; high for GO!) */
+export function playCountdownBeep(isHigh = false): void {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(isHigh ? 880 : 440, now);
+
+    gain.gain.setValueAtTime(0.15, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + (isHigh ? 0.35 : 0.18));
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + (isHigh ? 0.36 : 0.2));
+  } catch {
+    // Ignored
+  }
+}
+
 /** Sparkling coin collection pop and chime */
 export function playCoinPopSound(): void {
   try {
@@ -141,8 +165,8 @@ export function playCoinPopSound(): void {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(400, now);
-    osc.frequency.exponentialRampToValueAtTime(1100, now + 0.1);
+    osc.frequency.setValueAtTime(450, now);
+    osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
 
     gain.gain.setValueAtTime(0.18, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
@@ -159,7 +183,7 @@ export function playCoinPopSound(): void {
     bell.type = 'triangle';
     bell.frequency.setValueAtTime(1760, now + 0.05);
 
-    bellGain.gain.setValueAtTime(0.12, now + 0.05);
+    bellGain.gain.setValueAtTime(0.14, now + 0.05);
     bellGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
 
     bell.connect(bellGain);
@@ -184,17 +208,17 @@ export function playSetCompletionFanfare(): void {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'triangle';
-      osc.frequency.setValueAtTime(freq, now + idx * 0.07);
+      osc.frequency.setValueAtTime(freq, now + idx * 0.08);
 
-      gain.gain.setValueAtTime(0, now + idx * 0.07);
-      gain.gain.linearRampToValueAtTime(0.16, now + idx * 0.07 + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.4);
+      gain.gain.setValueAtTime(0, now + idx * 0.08);
+      gain.gain.linearRampToValueAtTime(0.18, now + idx * 0.08 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.45);
 
       osc.connect(gain);
       gain.connect(ctx.destination);
 
-      osc.start(now + idx * 0.07);
-      osc.stop(now + idx * 0.07 + 0.45);
+      osc.start(now + idx * 0.08);
+      osc.stop(now + idx * 0.08 + 0.5);
     });
   } catch {
     // Ignored
@@ -207,37 +231,109 @@ export function playSetCompletionFanfare(): void {
 
 export function createCoinBurst(cx: number, cy: number): NeckParticle[] {
   const particles: NeckParticle[] = [];
-  const colors = ['#f59e0b', '#fbbf24', '#fde047', '#38bdf8', '#34d399', '#ffffff'];
-  const count = 30;
+  const colors = ['#f59e0b', '#fbbf24', '#fde047', '#38bdf8', '#34d399', '#ffffff', '#ec4899'];
+  const count = 35;
 
   for (let i = 0; i < count; i++) {
-    const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.4;
-    const speed = 0.004 + Math.random() * 0.008;
+    const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5;
+    const speed = 0.005 + Math.random() * 0.009;
     particles.push({
       x: cx,
       y: cy,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
       color: colors[Math.floor(Math.random() * colors.length)],
-      size: 4 + Math.random() * 5,
+      size: 4 + Math.random() * 6,
       alpha: 1,
       life: 0,
-      maxLife: 35 + Math.floor(Math.random() * 20),
+      maxLife: 40 + Math.floor(Math.random() * 25),
     });
   }
   return particles;
 }
 
-export function createFloatingScore(cx: number, cy: number, score = 50): FloatingText {
+/** Dual jet engine flame & smoke trails trailing behind glider */
+export function createJetTrailParticles(x: number, y: number, tilt: number): NeckParticle[] {
+  const particles: NeckParticle[] = [];
+  // Two engine nozzles spaced horizontally
+  const leftX = x - 0.028 + tilt * 0.01;
+  const rightX = x + 0.028 + tilt * 0.01;
+  const trailY = y + 0.038;
+
+  const colors = ['#38bdf8', '#67e8f9', '#bae6fd', '#fde047', '#f97316'];
+
+  for (const originX of [leftX, rightX]) {
+    particles.push({
+      x: originX + (Math.random() - 0.5) * 0.005,
+      y: trailY,
+      vx: (Math.random() - 0.5) * 0.001 - tilt * 0.002,
+      vy: 0.003 + Math.random() * 0.004,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      size: 3 + Math.random() * 4,
+      alpha: 0.8,
+      life: 0,
+      maxLife: 20 + Math.floor(Math.random() * 10),
+    });
+  }
+
+  return particles;
+}
+
+export function createFloatingScore(cx: number, cy: number, score = 50, streak = 0): FloatingText {
+  const text = streak > 1 ? `+${score} 🔥 ${streak}x!` : `+${score}`;
   return {
-    text: `+${score} PTS`,
+    text,
     x: cx,
-    y: cy - 0.04,
+    y: cy - 0.05,
     alpha: 1,
     life: 0,
-    maxLife: 42,
-    color: '#fbbf24',
+    maxLife: 45,
+    color: streak > 1 ? '#f97316' : '#fbbf24',
   };
+}
+
+/** Victory celebration confetti burst */
+export function createCelebrationConfetti(): NeckParticle[] {
+  const particles: NeckParticle[] = [];
+  const colors = ['#38bdf8', '#f59e0b', '#10b981', '#ec4899', '#8b5cf6', '#f43f5e', '#eab308'];
+
+  for (let i = 0; i < 80; i++) {
+    particles.push({
+      x: 0.2 + Math.random() * 0.6,
+      y: 0.1 + Math.random() * 0.3,
+      vx: (Math.random() - 0.5) * 0.01,
+      vy: 0.002 + Math.random() * 0.006,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      size: 5 + Math.random() * 6,
+      alpha: 1,
+      life: 0,
+      maxLife: 80 + Math.floor(Math.random() * 40),
+    });
+  }
+  return particles;
+}
+
+/* ========================================================================== */
+/* Parallax Environment Background Helpers                                    */
+/* ========================================================================== */
+
+export function createInitialClouds(): CloudItem[] {
+  return [
+    { x: 0.1, y: 0.12, width: 140, height: 42, speed: 0.00015, opacity: 0.65 },
+    { x: 0.45, y: 0.18, width: 200, height: 55, speed: 0.00022, opacity: 0.75 },
+    { x: 0.78, y: 0.08, width: 160, height: 48, speed: 0.00018, opacity: 0.6 },
+    { x: 0.25, y: 0.28, width: 120, height: 38, speed: 0.00012, opacity: 0.5 },
+    { x: 0.9, y: 0.24, width: 180, height: 50, speed: 0.00025, opacity: 0.7 },
+  ];
+}
+
+export function updateClouds(clouds: CloudItem[]): void {
+  for (const c of clouds) {
+    c.x += c.speed;
+    if (c.x > 1.2) {
+      c.x = -0.25;
+    }
+  }
 }
 
 /* ========================================================================== */
@@ -272,9 +368,9 @@ export class NeckHorizontalTracker {
   drone: DroneState = {
     x: 0.5,
     targetX: 0.5,
-    y: 0.72,
+    y: 0.70,
     tiltAngle: 0,
-    radius: 0.05,
+    radius: 0.048,
   };
 
   targetSide: 'left' | 'right' = 'left';
@@ -316,11 +412,11 @@ export class NeckHorizontalTracker {
   update(
     landmarks: Landmark[] | undefined,
     _nowMs: number,
-    onCoinCollected?: (cx: number, cy: number) => void
+    onCoinCollected?: (cx: number, cy: number, streak: number) => void
   ): NeckHorizontalTelemetry {
     // Check if face landmarks are visible
     if (!landmarks || landmarks.length < 9) {
-      return this.buildTelemetry(0.5, 0, 'center', false, 'Align head and shoulders in center of camera frame.');
+      return this.buildTelemetry(0.5, 0, 'center', false, 'Align head and shoulders clearly in center of frame to fly!');
     }
 
     const nose = landmarks[0];
@@ -328,7 +424,7 @@ export class NeckHorizontalTracker {
     const rightEar = landmarks[8];
 
     if (!nose || !leftEar || !rightEar) {
-      return this.buildTelemetry(0.5, 0, 'center', false, 'Looking for nose and ear landmarks...');
+      return this.buildTelemetry(0.5, 0, 'center', false, 'Detecting head & ear alignment...');
     }
 
     const { yawRatio, turnDirection, angleDegrees } = calculateHeadYawRatio(nose, leftEar, rightEar);
@@ -340,20 +436,20 @@ export class NeckHorizontalTracker {
       this.peakRightAngle = angleDegrees;
     }
 
-    // Map yaw ratio to target drone X coordinate
+    // Map yaw ratio to target glider X coordinate
     const targetX = mapYawToHorizontalPosition(yawRatio, this.sensitivity);
     this.drone.targetX = targetX;
 
-    // Smooth drone horizontal motion using linear interpolation (lerp)
-    const lerpAlpha = 0.16;
+    // Smooth glider horizontal motion using linear interpolation (lerp)
+    const lerpAlpha = 0.18;
     const prevX = this.drone.x;
     this.drone.x = this.drone.x + (targetX - this.drone.x) * lerpAlpha;
 
     // Banking tilt proportional to velocity
     const velocityX = this.drone.x - prevX;
-    this.drone.tiltAngle = Math.max(-0.4, Math.min(0.4, velocityX * 18));
+    this.drone.tiltAngle = Math.max(-0.45, Math.min(0.45, velocityX * 22));
 
-    // Collision detection between drone and coin
+    // Collision detection between glider and coin
     const distToCoin = calculateDistance(
       { x: this.drone.x, y: this.drone.y },
       { x: this.currentCoin.x, y: this.currentCoin.y }
@@ -366,17 +462,17 @@ export class NeckHorizontalTracker {
       this.coinsCollected += 1;
       this.totalAttempts += 1;
       this.streak += 1;
-      const coinScore = 50 + Math.min(50, this.streak * 10);
+      const coinScore = 50 + Math.min(100, (this.streak - 1) * 20);
       this.totalScore += coinScore;
 
       if (this.soundEnabled) {
         playCoinPopSound();
-        if (this.coinsCollected % TARGET_COINS_GOAL === 0) {
+        if (this.coinsCollected >= TARGET_COINS_GOAL) {
           playSetCompletionFanfare();
         }
       }
 
-      onCoinCollected?.(this.currentCoin.x, this.currentCoin.y);
+      onCoinCollected?.(this.currentCoin.x, this.currentCoin.y, this.streak);
 
       const record: NeckRecord = {
         id: this.coinsCollected,
@@ -384,7 +480,7 @@ export class NeckHorizontalTracker {
         angleDegrees,
         timestamp: Date.now(),
       };
-      this.reps = [record, ...this.reps].slice(0, 10);
+      this.reps = [record, ...this.reps].slice(0, 15);
 
       this.persistSession();
 
@@ -392,18 +488,18 @@ export class NeckHorizontalTracker {
       this.targetSide = this.targetSide === 'left' ? 'right' : 'left';
       this.currentCoin = createTargetCoin(this.targetSide);
 
-      feedbackMessage = `COIN CAPTURED! +${coinScore} PTS! Now steer toward the ${this.targetSide.toUpperCase()}!`;
+      feedbackMessage = `COIN CAPTURED! +${coinScore} PTS! Next target: ${this.targetSide.toUpperCase()}!`;
     } else {
       if (this.targetSide === 'left') {
         feedbackMessage =
           turnDirection === 'left'
-            ? `Steering Left (${angleDegrees}°)... keep rotating neck to reach target coin!`
-            : 'Turn head smoothly to your LEFT to steer drone left!';
+            ? `Gliding Left (${angleDegrees}°)... reach for the golden sun!`
+            : 'Turn head smoothly LEFT to guide glider!';
       } else {
         feedbackMessage =
           turnDirection === 'right'
-            ? `Steering Right (${angleDegrees}°)... keep rotating neck to reach target coin!`
-            : 'Turn head smoothly to your RIGHT to steer drone right!';
+            ? `Gliding Right (${angleDegrees}°)... reach for the golden sun!`
+            : 'Turn head smoothly RIGHT to guide glider!';
       }
     }
 

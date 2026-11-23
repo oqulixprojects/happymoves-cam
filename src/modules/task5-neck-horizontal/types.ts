@@ -2,6 +2,8 @@ export type SteeringSensitivity = 'low' | 'normal' | 'high';
 
 export type TurnDirection = 'left' | 'right' | 'center';
 
+export type GameState = 'ready' | 'countdown' | 'playing' | 'completed';
+
 export interface TargetCoin {
   id: string;
   side: 'left' | 'right';
@@ -75,4 +77,13 @@ export interface FloatingText {
   life: number;
   maxLife: number;
   color: string;
+}
+
+export interface CloudItem {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  speed: number;
+  opacity: number;
 }
