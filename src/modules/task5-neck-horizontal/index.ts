@@ -7,7 +7,6 @@ export default defineModule({
   summary:
     'Active cervical lateral rotation exercise with gamified head-steered drone navigation for neck stiffness, whiplash, and posture recovery.',
   categoryId: 'weight-shifting-and-balance',
-  activityId: 'cervical-lateral-rotation',
   status: 'demo',
   requiresCamera: true,
   tracking: ['pose'],
